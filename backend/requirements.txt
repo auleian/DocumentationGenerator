@@ -1,0 +1,9 @@
+# Core Framework & REST API
+Django>=5.0,<6.0
+djangorestframework>=3.15.0
+
+# CORS Middleware (For Next.js communication)
+django-cors-headers>=4.3.0
+
+# Local Environment Variables
+python-dotenv>=1.0.1
