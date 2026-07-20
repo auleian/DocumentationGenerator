@@ -32,6 +32,7 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'DocumentSession.apps.DocumentsessionConfig',
+    'DocumentType.apps.DocumenttypeConfig',
     'rest_framework',
     'django.contrib.admin',
     'django.contrib.auth',

@@ -5,8 +5,8 @@ from django.db import models
 
 class DocumentType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=50, unique=True)   # e.g. "srs"
-    display_name = models.CharField(max_length=100)         # e.g. "Software Requirements Specification"
+    name = models.CharField(max_length=50, unique=True)  
+    display_name = models.CharField(max_length=100)         
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
