@@ -1,7 +1,7 @@
 # Documentation Generator
 An technical documentation tool built to generate documentations and other system specifications.
 
-The platform structures engineering inputs into clean, standardized Markdown adhering strictly to **Google's Technical Writing Guidelines** and **IEEE standards** ensuring active voice, clear task-based hierarchies, precise RFC 2119 requirement phrasing (`MUST`, `SHOULD`, `MAY`), and consistent team-wide standards.
+The platform structures engineering inputs into clean, standardized Markdown adhering strictly to **Google's Technical Writing Guidelines** and **IEEE standards** ensuring active voice, RFC 2119 requirement phrasing (`MUST`, `SHOULD`, `MAY`), and consistent team-wide standards.
 
 ---
 
