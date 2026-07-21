@@ -23,4 +23,5 @@ urlpatterns = [
     path('api/', include('DocumentType.urls')),
     path('api/', include('Sections.urls')),
     path('api/', include('Questions.urls')),
+    path('api/', include('Answers.urls')),
 ]
