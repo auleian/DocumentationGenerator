@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'DocumentType.apps.DocumenttypeConfig',
     'Sections.apps.SectionsConfig',
     'Questions.apps.QuestionsConfig',
+    'Answers.apps.AnswersConfig',
     'rest_framework',
     'django.contrib.admin',
     'django.contrib.auth',
