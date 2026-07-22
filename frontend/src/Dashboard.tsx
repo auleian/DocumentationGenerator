@@ -7,7 +7,6 @@ import {
   Clock,
   ArrowRight,
   BookOpen,
-  ChevronLeft,
   CheckCircle2,
   CircleDot,
   Circle,
