@@ -1,5 +1,16 @@
 import type { Draft, SrsSection } from './types';
 
+// A tiny placeholder image so mock drafts render a real "attached" diagram.
+const PLACEHOLDER_DIAGRAM =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="240">' +
+      '<rect width="100%" height="100%" fill="#f0fdf4"/>' +
+      '<rect x="1" y="1" width="478" height="238" fill="none" stroke="#bbf7d0" stroke-width="2"/>' +
+      '<text x="50%" y="50%" font-family="sans-serif" font-size="16" fill="#16a34a" text-anchor="middle">Sample diagram</text>' +
+      '</svg>',
+  );
+
 // IEEE 830 SRS structure
 export const SECTIONS: SrsSection[] = [
   {
@@ -243,8 +254,8 @@ export const MOCK_DRAFTS: Draft[] = [
       s34_audit: 'Yes — immutable, 1 year retention',
     },
     diagrams: {
-      '2': 'system-context.png',
-      '3.1': 'architecture.png',
+      '2': { dataUrl: PLACEHOLDER_DIAGRAM, fileName: 'system-context.png' },
+      '3.1': { dataUrl: PLACEHOLDER_DIAGRAM, fileName: 'architecture.png' },
     },
   },
   {
