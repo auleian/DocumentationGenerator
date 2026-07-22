@@ -19,12 +19,6 @@ function answerHtml(draft: Draft, qId: string, placeholder: string): string {
   return `<p class="md-placeholder">${esc(placeholder)}</p>`;
 }
 
-function sectionNumber(s: SrsSection, idx: number): string {
-  // IEEE numbering: top-level sections are 1, 2, 3...
-  // subsections under "3" are 3.1, 3.2, 3.3...
-  return s.id;
-}
-
 function questionNumber(sectionId: string, qIdx: number): string {
   return `${sectionId}.${qIdx + 1}`;
 }
