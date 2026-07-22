@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import type { Draft } from './types';
-import { buildDocumentHtml } from './markdown';
+import { buildDocumentHtml, buildMarkdown } from './markdown';
 import { SECTIONS } from './data';
-import { sectionProgress } from './helpers';
+import { sectionProgress, slugify } from './helpers';
 import {
   BookOpen,
   ArrowLeft,
@@ -27,6 +27,17 @@ export default function Review({ draft, onBackToDrafts, onBackToWizard }: Review
   );
   const completeCount = SECTIONS.filter((s) => sectionProgress(s, draft) === 1).length;
 
+  function downloadMarkdown() {
+    const md = buildMarkdown(draft);
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${slugify(draft.title)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="min-h-screen bg-gray-50/60 flex flex-col">
       <header className="shrink-0 border-b border-gray-200 bg-white">
@@ -45,7 +56,10 @@ export default function Review({ draft, onBackToDrafts, onBackToWizard }: Review
             >
               <Pencil className="h-3.5 w-3.5" /> Edit
             </button>
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors">
+            <button
+              onClick={downloadMarkdown}
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+            >
               <FileDown className="h-3.5 w-3.5" /> Export Markdown
             </button>
             <button className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 transition-colors">
@@ -115,7 +129,7 @@ export default function Review({ draft, onBackToDrafts, onBackToWizard }: Review
         <div className="animate-scale-in rounded-xl border border-gray-200 bg-white shadow-soft">
           <div className="px-8 py-3 border-b border-gray-100 flex items-center gap-2 text-xs text-gray-400">
             <FileText className="h-3.5 w-3.5" />
-            <span className="font-mono">{draft.title.toLowerCase().replace(/\s+/g, '-')}.md</span>
+            <span className="font-mono">{slugify(draft.title)}.md</span>
           </div>
           <div className="px-10 py-8 max-h-[calc(100vh-360px)] overflow-y-auto">
             <div className="md-doc" dangerouslySetInnerHTML={{ __html: html }} />

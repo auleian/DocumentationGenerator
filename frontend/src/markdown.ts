@@ -73,3 +73,43 @@ function renderSection(s: SrsSection, draft: Draft, _idx: number): string {
   html += `</section>`;
   return html;
 }
+
+/** Real Markdown text (as opposed to buildDocumentHtml's preview-only HTML) for export. */
+export function buildMarkdown(draft: Draft): string {
+  let md = `# ${draft.title}\n\n`;
+  if (draft.subtitle) md += `*${draft.subtitle}*\n\n`;
+  md += `---\n\n`;
+
+  for (const section of SECTIONS) {
+    md += renderSectionMarkdown(section, draft);
+  }
+  return md;
+}
+
+function renderSectionMarkdown(s: SrsSection, draft: Draft): string {
+  let md = `## ${s.id} ${s.title}\n\n`;
+  md += `*${s.description}*\n\n`;
+
+  for (let q = 0; q < s.questions.length; q++) {
+    const question = s.questions[q];
+    const qnum = questionNumber(s.id, q);
+    md += `### ${qnum} ${question.docTitle}\n\n`;
+    const v = draft.answers[question.id];
+    md += v && v.trim() ? `${v.trim()}\n\n` : `_Not yet answered._\n\n`;
+  }
+
+  if (s.diagram) {
+    const attached = draft.diagrams[s.id];
+    const dnum = questionNumber(s.id, s.questions.length);
+    md += `### ${dnum} Diagram\n\n`;
+    md += `**${s.diagram.type}** — ${s.diagram.reason}\n\n`;
+    if (attached) {
+      md += `![${attached.fileName}](${attached.dataUrl})\n\n`;
+      md += `_Attached: \`${attached.fileName}\`_\n\n`;
+    } else {
+      md += `_No diagram attached yet._\n\n`;
+    }
+  }
+
+  return md;
+}

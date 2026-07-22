@@ -42,3 +42,14 @@ export function statusTextClass(s: SectionStatus): string {
       ? 'text-brand-600'
       : 'text-brand-700';
 }
+
+/** Turns a draft title into a safe filename stem, e.g. "AIBOS EMS SRS" -> "aibos-ems-srs". */
+export function slugify(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'untitled-srs'
+  );
+}
