@@ -1,0 +1,177 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-white text-gray-800 antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+/* Custom scrollbar — thin, restrained */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* ===== Motion utilities ===== */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+@keyframes grow-bar {
+  from {
+    width: 0;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out both;
+}
+.animate-scale-in {
+  animation: scale-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-pulse-soft {
+  animation: pulse-soft 1.8s ease-in-out infinite;
+}
+
+/* Staggered children — set --i on each child */
+.stagger > * {
+  animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+/* Progress bar grow on mount */
+.bar-grow {
+  animation: grow-bar 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Saved indicator flash */
+.saved-flash {
+  animation: fade-in 0.2s ease-out both;
+}
+
+/* ===== IEEE document preview styling ===== */
+.doc-cover {
+  @apply pb-6 mb-8 border-b border-gray-200;
+}
+.doc-eyebrow {
+  @apply text-[11px] font-mono uppercase tracking-[0.2em] text-brand-600 mb-2;
+}
+.doc-title {
+  @apply text-3xl font-bold tracking-tight text-gray-900;
+}
+.doc-subtitle {
+  @apply text-base text-gray-500 mt-1;
+}
+.doc-section {
+  @apply mb-8;
+}
+.doc-h2 {
+  @apply text-xl font-semibold tracking-tight text-gray-900 mt-8 mb-1 pb-2 border-b border-gray-200;
+}
+.doc-h2 .doc-num {
+  @apply text-brand-600 mr-2 font-mono text-lg;
+}
+.doc-desc {
+  @apply text-sm text-gray-400 italic mb-4;
+}
+.doc-question {
+  @apply mb-5;
+}
+.doc-h3 {
+  @apply text-[15px] font-semibold text-gray-800 mb-1.5;
+}
+.doc-h3 .doc-num {
+  @apply text-brand-500 mr-1.5 font-mono text-[13px];
+}
+.doc-question p {
+  @apply text-sm leading-relaxed text-gray-700 my-1.5;
+}
+.doc-tag {
+  @apply inline-block font-mono text-[12px] bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded;
+}
+.doc-attached {
+  @apply text-sm text-gray-500;
+}
+.doc-attached code {
+  @apply font-mono text-[13px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded;
+}
+.md-placeholder {
+  @apply text-gray-300 italic;
+}
