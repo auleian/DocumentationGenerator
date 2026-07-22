@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Draft, Screen } from './types';
 import { MOCK_DRAFTS } from './data';
+import { useLocalStorageState } from './useLocalStorageState';
 import Home from './Home';
 import Drafts from './Dashboard';
 import Wizard from './Wizard';
@@ -8,7 +9,7 @@ import Review from './Review';
 
 function App() {
   const [screen, setScreen] = useState<Screen>('home');
-  const [drafts, setDrafts] = useState<Draft[]>(MOCK_DRAFTS);
+  const [drafts, setDrafts] = useLocalStorageState<Draft[]>('docgen.drafts.v1', MOCK_DRAFTS);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
 
   const activeDraft = drafts.find((d) => d.id === activeDraftId) || null;
