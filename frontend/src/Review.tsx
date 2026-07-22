@@ -39,8 +39,8 @@ export default function Review({ draft, onBackToDrafts, onBackToWizard }: Review
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/60 flex flex-col">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
+    <div className="min-h-screen bg-gray-50/60 flex flex-col print:bg-white">
+      <header className="shrink-0 border-b border-gray-200 bg-white print:hidden">
         <div className="mx-auto max-w-5xl px-8 h-14 flex items-center justify-between">
           <button
             onClick={onBackToDrafts}
@@ -62,16 +62,19 @@ export default function Review({ draft, onBackToDrafts, onBackToWizard }: Review
             >
               <FileDown className="h-3.5 w-3.5" /> Export Markdown
             </button>
-            <button className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 transition-colors">
+            <button
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 transition-colors"
+            >
               <FileDown className="h-3.5 w-3.5" /> Export PDF
             </button>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 mx-auto w-full max-w-5xl px-8 py-8">
+      <main className="flex-1 mx-auto w-full max-w-5xl px-8 py-8 print:p-0 print:max-w-none">
         {/* Summary strip */}
-        <div className="animate-fade-up mb-6 flex items-center justify-between">
+        <div className="animate-fade-up mb-6 flex items-center justify-between print:hidden">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{draft.title}</h1>
             <p className="mt-1 text-sm text-gray-500">
@@ -94,7 +97,7 @@ export default function Review({ draft, onBackToDrafts, onBackToWizard }: Review
         </div>
 
         {/* Section status chips */}
-        <div className="stagger mb-6 flex flex-wrap gap-2">
+        <div className="stagger mb-6 flex flex-wrap gap-2 print:hidden">
           {SECTIONS.map((s, i) => {
             const p = sectionProgress(s, draft);
             const st = p === 1 ? 'complete' : p === 0 ? 'not_started' : 'in_progress';
@@ -119,24 +122,24 @@ export default function Review({ draft, onBackToDrafts, onBackToWizard }: Review
         </div>
 
         {/* Overall progress bar — solid */}
-        <div className="animate-fade-up mb-6">
+        <div className="animate-fade-up mb-6 print:hidden">
           <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
             <div className="bar-grow h-full rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
           </div>
         </div>
 
         {/* Document preview */}
-        <div className="animate-scale-in rounded-xl border border-gray-200 bg-white shadow-soft">
-          <div className="px-8 py-3 border-b border-gray-100 flex items-center gap-2 text-xs text-gray-400">
+        <div className="animate-scale-in rounded-xl border border-gray-200 bg-white shadow-soft print:rounded-none print:border-0 print:shadow-none">
+          <div className="px-8 py-3 border-b border-gray-100 flex items-center gap-2 text-xs text-gray-400 print:hidden">
             <FileText className="h-3.5 w-3.5" />
             <span className="font-mono">{slugify(draft.title)}.md</span>
           </div>
-          <div className="px-10 py-8 max-h-[calc(100vh-360px)] overflow-y-auto">
+          <div className="px-10 py-8 max-h-[calc(100vh-360px)] overflow-y-auto print:max-h-none print:overflow-visible print:p-0">
             <div className="md-doc" dangerouslySetInnerHTML={{ __html: html }} />
           </div>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 print:hidden">
           <button
             onClick={onBackToDrafts}
             className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors"
