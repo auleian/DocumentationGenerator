@@ -40,4 +40,6 @@ class DocumentSessionViewSet(viewsets.ModelViewSet):
                     ]
                 })
 
-        return Response({"message": "All sections complete."})
+        session.status = "answers_complete"
+        session.save()
+        return Response({"message": "All sections complete.", "status": session.status})
