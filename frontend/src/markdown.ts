@@ -62,7 +62,8 @@ function renderSection(s: SrsSection, draft: Draft, _idx: number): string {
     html += `<h3 class="doc-h3"><span class="doc-num">${esc(dnum)}</span> Diagram</h3>`;
     html += `<p><span class="doc-tag">${esc(s.diagram.type)}</span> — ${esc(s.diagram.reason)}</p>`;
     if (attached) {
-      html += `<p class="doc-attached">Attached: <code>${esc(attached)}</code></p>`;
+      html += `<img class="doc-diagram" src="${attached.dataUrl}" alt="${esc(attached.fileName)}" />`;
+      html += `<p class="doc-attached">Attached: <code>${esc(attached.fileName)}</code></p>`;
     } else {
       html += `<p class="md-placeholder">No diagram attached yet.</p>`;
     }

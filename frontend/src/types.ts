@@ -16,6 +16,12 @@ export interface DiagramSpec {
   reason: string;
 }
 
+/** An author-supplied diagram image attached to a section's diagram slot. */
+export interface DiagramAttachment {
+  dataUrl: string;
+  fileName: string;
+}
+
 export interface SrsSection {
   /** IEEE number, e.g. "1", "2", "3.1" */
   id: string;
@@ -34,7 +40,7 @@ export interface Draft {
   progress: number;
   lastEdited: string;
   answers: Record<string, string>;
-  diagrams: Record<string, string>;
+  diagrams: Record<string, DiagramAttachment>;
 }
 
 export type Screen = 'home' | 'drafts' | 'wizard' | 'review';

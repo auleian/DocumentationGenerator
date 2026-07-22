@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import type { Draft, SectionStatus } from './types';
+import { useMemo, useRef, useState } from 'react';
+import type { Draft, DiagramAttachment, SectionStatus } from './types';
 import { SECTIONS } from './data';
 import { sectionStatus, sectionProgress, statusLabel, statusTextClass } from './helpers';
 import { buildDocumentHtml } from './markdown';
@@ -17,7 +17,19 @@ import {
   FileText,
   Eye,
   Save,
+  X,
 } from 'lucide-react';
+
+const MAX_DIAGRAM_BYTES = 5 * 1024 * 1024; // 5MB, matches the UI's stated limit
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 interface WizardProps {
   draft: Draft;
@@ -40,13 +52,31 @@ export default function Wizard({ draft, onBackToDrafts, onReview, onUpdateDraft 
     flashSaved();
   }
 
-  function attachDiagram() {
+  const [diagramError, setDiagramError] = useState<string | null>(null);
+
+  async function attachDiagram(file: File) {
+    setDiagramError(null);
+    if (!file.type.startsWith('image/')) {
+      setDiagramError('Please choose an image file (PNG, JPG, or SVG).');
+      return;
+    }
+    if (file.size > MAX_DIAGRAM_BYTES) {
+      setDiagramError('That image is over 5MB — please choose a smaller export.');
+      return;
+    }
+    const dataUrl = await readAsDataUrl(file);
     const next: Draft = {
       ...draft,
-      diagrams: { ...draft.diagrams, [section.id]: `${section.id}-diagram.png` },
+      diagrams: { ...draft.diagrams, [section.id]: { dataUrl, fileName: file.name } },
       lastEdited: 'just now',
     };
     onUpdateDraft(next);
+    flashSaved();
+  }
+
+  function removeDiagram() {
+    const { [section.id]: _removed, ...rest } = draft.diagrams;
+    onUpdateDraft({ ...draft, diagrams: rest, lastEdited: 'just now' });
     flashSaved();
   }
 
@@ -181,6 +211,8 @@ export default function Wizard({ draft, onBackToDrafts, onReview, onUpdateDraft 
                     reason={section.diagram.reason}
                     attached={draft.diagrams[section.id]}
                     onAttach={attachDiagram}
+                    onRemove={removeDiagram}
+                    error={diagramError}
                   />
                 </div>
               )}
@@ -319,12 +351,24 @@ function DiagramCard({
   reason,
   attached,
   onAttach,
+  onRemove,
+  error,
 }: {
   type: string;
   reason: string;
-  attached?: string;
-  onAttach: () => void;
+  attached?: DiagramAttachment;
+  onAttach: (file: File) => void;
+  onRemove: () => void;
+  error: string | null;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) onAttach(file);
+    e.target.value = '';
+  }
+
   return (
     <div className="rounded-xl border border-gray-200 bg-gray-50/50 overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-200 bg-white">
@@ -338,28 +382,49 @@ function DiagramCard({
           </div>
         </div>
       </div>
-      <button
-        onClick={onAttach}
-        className="w-full p-8 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-brand-600 hover:bg-brand-50/40 transition-colors group"
-      >
-        {attached ? (
-          <>
-            <div className="h-10 w-10 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center">
-              <Check className="h-5 w-5" strokeWidth={2.2} />
+
+      {attached ? (
+        <div className="p-4 space-y-3">
+          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+            <img src={attached.dataUrl} alt={type} className="max-h-64 w-full object-contain" />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-brand-700">
+              <Check className="h-3.5 w-3.5" strokeWidth={2.2} />
+              {attached.fileName}
             </div>
-            <div className="text-xs font-medium text-brand-700">{attached}</div>
-            <div className="text-[11px] text-gray-400">Click to replace</div>
-          </>
-        ) : (
-          <>
-            <div className="h-10 w-10 rounded-full border-2 border-dashed border-gray-300 group-hover:border-brand-400 flex items-center justify-center transition-colors">
-              <ImagePlus className="h-5 w-5" strokeWidth={1.6} />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => inputRef.current?.click()}
+                className="text-xs font-medium text-gray-500 hover:text-brand-600 transition-colors"
+              >
+                Replace
+              </button>
+              <button
+                onClick={onRemove}
+                className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-red-600 transition-colors"
+              >
+                <X className="h-3.5 w-3.5" /> Remove
+              </button>
             </div>
-            <div className="text-xs font-medium">Drop an image or click to attach</div>
-            <div className="text-[11px] text-gray-400">PNG, SVG up to 5MB</div>
-          </>
-        )}
-      </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => inputRef.current?.click()}
+          className="w-full p-8 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-brand-600 hover:bg-brand-50/40 transition-colors group"
+        >
+          <div className="h-10 w-10 rounded-full border-2 border-dashed border-gray-300 group-hover:border-brand-400 flex items-center justify-center transition-colors">
+            <ImagePlus className="h-5 w-5" strokeWidth={1.6} />
+          </div>
+          <div className="text-xs font-medium">Drop an image or click to attach</div>
+          <div className="text-[11px] text-gray-400">PNG, SVG up to 5MB</div>
+        </button>
+      )}
+
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+
+      {error && <p className="px-4 pb-3 text-xs text-red-600">{error}</p>}
     </div>
   );
 }
