@@ -5,7 +5,9 @@ from .models import DocumentSession
 from .serializers import DocumentSessionSerializer
 from GeneratedSection.services import polish_section_answers
 from Sections.models import Section
-from Answers.models import Answer   
+from Answers.models import Answer  
+from GeneratedDocument.models import GeneratedDocument
+from GeneratedSection.models import GeneratedSection 
 
 class DocumentSessionViewSet(viewsets.ModelViewSet):
     queryset = DocumentSession.objects.all()
@@ -48,3 +50,41 @@ class DocumentSessionViewSet(viewsets.ModelViewSet):
         session.status = "answers_complete"
         session.save()
         return Response({"message": "All sections complete.", "status": session.status})
+
+    @action(detail=True, methods=['post'])
+    def generate(self, request, pk=None):
+        session = self.get_object()
+
+        def get_ordered_ready_sections(section):
+            result = []
+            gs = GeneratedSection.objects.filter(session=session, section=section, status='ready').first()
+            if gs:
+                result.append(gs)
+            for sub in section.subsections.all().order_by('order'):
+                result += get_ordered_ready_sections(sub)
+            return result
+
+        top_level_sections = Section.objects.filter(
+            document_type__name=session.document_type,
+            parent=None
+        ).order_by('order')
+
+        all_ready_sections = []
+        for section in top_level_sections:
+            all_ready_sections += get_ordered_ready_sections(section)
+
+        if not all_ready_sections:
+            return Response({"message": "No polished sections available yet."}, status=400)
+
+        combined_markdown = "\n\n".join(gs.content for gs in all_ready_sections)
+
+        doc, _ = GeneratedDocument.objects.update_or_create(
+            session=session,
+            defaults={"content": combined_markdown, "status": "ready"}
+        )
+
+        return Response({
+            "id": str(doc.id),
+            "status": doc.status,
+            "content": doc.content
+        })
