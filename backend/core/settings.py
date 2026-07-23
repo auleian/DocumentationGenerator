@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'Sections.apps.SectionsConfig',
     'Questions.apps.QuestionsConfig',
     'Answers.apps.AnswersConfig',
+    'GeneratedSection.apps.GeneratedsectionConfig',
     'rest_framework',
     'corsheaders',
     'drf_spectacular',

@@ -3,8 +3,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import DocumentSession
 from .serializers import DocumentSessionSerializer
+from GeneratedSection.services import polish_section_answers
 from Sections.models import Section
-from Answers.models import Answer   # adjust to your teammate's actual app/model name
+from Answers.models import Answer   
 
 class DocumentSessionViewSet(viewsets.ModelViewSet):
     queryset = DocumentSession.objects.all()
@@ -31,6 +32,7 @@ class DocumentSessionViewSet(viewsets.ModelViewSet):
                 session=session, question__in=all_questions
             ).values_list('question_id', flat=True)
             unanswered = [q for q in all_questions if q.id not in answered_ids]
+
             if unanswered:
                 return Response({
                     "section": {"number": section.number, "name": section.name},
@@ -39,6 +41,9 @@ class DocumentSessionViewSet(viewsets.ModelViewSet):
                         for q in unanswered
                     ]
                 })
+            else:
+                # This section is fully answered — trigger background polishing for it
+                polish_section_answers(session, section)
 
         session.status = "answers_complete"
         session.save()
