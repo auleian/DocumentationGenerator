@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/', include('Questions.urls')),
     path('api/', include('Answers.urls')),
     path('api/', include('GeneratedSection.urls')),
+    path('api/', include('GeneratedDocument.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 ]
