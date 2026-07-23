@@ -5,6 +5,7 @@ import { useLocalStorageState } from './useLocalStorageState';
 import Home from './Home';
 import Drafts from './Dashboard';
 import TemplatePicker from './TemplatePicker';
+import SectionPicker from './SectionPicker';
 import Wizard from './Wizard';
 import Review from './Review';
 
@@ -36,7 +37,7 @@ function App() {
       progress: 0,
       lastEdited: 'just now',
       templateId: template.id,
-      selectedSectionIds: template.sections.map((s) => s.id),
+      selectedSectionIds: template.sections.filter((s) => !s.optional).map((s) => s.id),
       answers: {},
       diagrams: {},
       generated: {},
@@ -44,8 +45,7 @@ function App() {
     };
     setDrafts((prev) => [draft, ...prev]);
     setActiveDraftId(id);
-    // TODO(step 3): route to 'sections' (the section picker) instead, once it exists.
-    setScreen('wizard');
+    setScreen('sections');
   }
 
   function updateDraft(updated: Draft) {
@@ -69,6 +69,17 @@ function App() {
 
   if (screen === 'templates') {
     return <TemplatePicker onSelect={selectTemplate} onBackHome={() => setScreen('home')} />;
+  }
+
+  if (screen === 'sections' && activeDraft) {
+    return (
+      <SectionPicker
+        draft={activeDraft}
+        onUpdateDraft={updateDraft}
+        onContinue={() => setScreen('wizard')}
+        onBack={() => setScreen('templates')}
+      />
+    );
   }
 
   if (screen === 'wizard' && activeDraft) {
