@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Draft, Screen } from './types';
-import { MOCK_DRAFTS } from './data';
+import { MOCK_DRAFTS, ALL_SRS_SECTION_IDS } from './data';
 import { useLocalStorageState } from './useLocalStorageState';
 import Home from './Home';
 import Drafts from './Dashboard';
@@ -27,8 +27,12 @@ function App() {
       subtitle: 'New specification',
       progress: 0,
       lastEdited: 'just now',
+      templateId: 'srs',
+      selectedSectionIds: ALL_SRS_SECTION_IDS,
       answers: {},
       diagrams: {},
+      generated: {},
+      generationStatus: 'idle',
     };
     setDrafts((prev) => [draft, ...prev]);
     setActiveDraftId(id);
