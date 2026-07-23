@@ -36,6 +36,9 @@ INSTALLED_APPS = [
     'Sections.apps.SectionsConfig',
     'Questions.apps.QuestionsConfig',
     'Answers.apps.AnswersConfig',
+    'GeneratedSection.apps.GeneratedsectionConfig',
+    'GeneratedDocument.apps.GenerateddocumentConfig',
+    'ExportArtifact.apps.ExportartifactConfig',
     'rest_framework',
     'corsheaders',
     'drf_spectacular',
@@ -65,6 +68,9 @@ CORS_ALLOWED_ORIGINS = [
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 ROOT_URLCONF = 'core.urls'
 
