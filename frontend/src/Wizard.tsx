@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import type { Draft, DiagramAttachment, SectionStatus } from './types';
-import { SECTIONS } from './data';
+import { TEMPLATES } from './data';
 import { sectionStatus, sectionProgress, statusLabel, statusTextClass } from './helpers';
 import { buildDocumentHtml } from './markdown';
 import {
@@ -43,7 +43,26 @@ export default function Wizard({ draft, onBackToDrafts, onReview, onUpdateDraft 
   const [previewOpen, setPreviewOpen] = useState(true);
   const [savedFlash, setSavedFlash] = useState(false);
 
-  const section = SECTIONS[activeIdx];
+  const template = TEMPLATES.find((t) => t.id === draft.templateId);
+  const sections = (template?.sections ?? []).filter((s) => draft.selectedSectionIds.includes(s.id));
+
+  if (sections.length === 0) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <div className="text-center">
+          <p className="text-sm text-gray-500">No sections selected yet.</p>
+          <button
+            onClick={onBackToDrafts}
+            className="mt-3 text-sm font-medium text-brand-700 hover:text-brand-800"
+          >
+            Back to drafts
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const section = sections[Math.min(activeIdx, sections.length - 1)];
   const status = sectionStatus(section, draft);
 
   function setAnswer(qId: string, value: string) {
@@ -88,12 +107,12 @@ export default function Wizard({ draft, onBackToDrafts, onReview, onUpdateDraft 
   }
 
   function go(delta: number) {
-    const next = Math.min(SECTIONS.length - 1, Math.max(0, activeIdx + delta));
+    const next = Math.min(sections.length - 1, Math.max(0, activeIdx + delta));
     setActiveIdx(next);
   }
 
   const overallPct = Math.round(
-    (SECTIONS.reduce((acc, s) => acc + sectionProgress(s, draft), 0) / SECTIONS.length) * 100,
+    (sections.reduce((acc, s) => acc + sectionProgress(s, draft), 0) / sections.length) * 100,
   );
 
   return (
@@ -144,7 +163,7 @@ export default function Wizard({ draft, onBackToDrafts, onReview, onUpdateDraft 
             </div>
           </div>
           <nav className="flex-1 overflow-y-auto py-1.5">
-            {SECTIONS.map((s, i) => {
+            {sections.map((s, i) => {
               const st = sectionStatus(s, draft);
               const active = i === activeIdx;
               return (
@@ -248,11 +267,11 @@ export default function Wizard({ draft, onBackToDrafts, onReview, onUpdateDraft 
               <ChevronLeft className="h-3.5 w-3.5" /> Previous
             </button>
             <span className="text-[11px] text-gray-400 font-mono">
-              {activeIdx + 1} / {SECTIONS.length}
+              {activeIdx + 1} / {sections.length}
             </span>
             <button
               onClick={() => go(1)}
-              disabled={activeIdx === SECTIONS.length - 1}
+              disabled={activeIdx === sections.length - 1}
               className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
             >
               Next <ChevronRight className="h-3.5 w-3.5" />
