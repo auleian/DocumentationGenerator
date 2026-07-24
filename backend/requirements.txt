@@ -5,5 +5,13 @@ djangorestframework>=3.15.0
 # CORS Middleware (For Next.js communication)
 django-cors-headers>=4.3.0
 
+# OpenAPI schema / Swagger docs
+drf-spectacular>=0.30.0
+
+# Document export (Markdown -> HTML/PDF/DOCX)
+markdown>=3.10.2
+python-docx>=1.2.0
+xhtml2pdf>=0.2.17
+
 # Local Environment Variables
 python-dotenv>=1.0.1
