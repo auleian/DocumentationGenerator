@@ -15,8 +15,8 @@ import {
   CircleDot,
   ImagePlus,
   FileText,
-  Eye,
   Save,
+  Sparkles,
   X,
 } from 'lucide-react';
 
@@ -34,11 +34,11 @@ function readAsDataUrl(file: File): Promise<string> {
 interface WizardProps {
   draft: Draft;
   onBackToDrafts: () => void;
-  onReview: () => void;
+  onGenerate: () => void;
   onUpdateDraft: (d: Draft) => void;
 }
 
-export default function Wizard({ draft, onBackToDrafts, onReview, onUpdateDraft }: WizardProps) {
+export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraft }: WizardProps) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -137,10 +137,10 @@ export default function Wizard({ draft, onBackToDrafts, onReview, onUpdateDraft 
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={onReview}
+              onClick={onGenerate}
               className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors"
             >
-              <Eye className="h-3.5 w-3.5" /> Review & Export
+              <Sparkles className="h-3.5 w-3.5" /> Generate document
             </button>
             <button
               onClick={() => setPreviewOpen((v) => !v)}
@@ -290,10 +290,10 @@ export default function Wizard({ draft, onBackToDrafts, onReview, onUpdateDraft 
               {savedFlash ? 'Saved' : 'All changes saved'}
             </div>
             <button
-              onClick={onReview}
+              onClick={onGenerate}
               className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 transition-colors"
             >
-              <CheckCircle2 className="h-3.5 w-3.5" /> Review & Export
+              <Sparkles className="h-3.5 w-3.5" /> Generate document
             </button>
           </div>
         </div>

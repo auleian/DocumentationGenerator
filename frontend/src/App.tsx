@@ -7,6 +7,7 @@ import Drafts from './Dashboard';
 import TemplatePicker from './TemplatePicker';
 import SectionPicker from './SectionPicker';
 import Wizard from './Wizard';
+import Generate from './Generate';
 import Review from './Review';
 
 function App() {
@@ -87,8 +88,19 @@ function App() {
       <Wizard
         draft={activeDraft}
         onBackToDrafts={() => setScreen('drafts')}
-        onReview={() => setScreen('review')}
+        onGenerate={() => setScreen('generate')}
         onUpdateDraft={updateDraft}
+      />
+    );
+  }
+
+  if (screen === 'generate' && activeDraft) {
+    return (
+      <Generate
+        draft={activeDraft}
+        onUpdateDraft={updateDraft}
+        onDone={() => setScreen('review')}
+        onBack={() => setScreen('wizard')}
       />
     );
   }
