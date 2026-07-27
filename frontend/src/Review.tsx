@@ -3,6 +3,7 @@ import type { Draft, SrsSection } from './types';
 import { buildGeneratedMarkdown } from './markdown';
 import { TEMPLATES } from './data';
 import { generateDocument } from './lib/generate';
+import { exportWord } from './lib/exportWord';
 import { slugify } from './helpers';
 import {
   BookOpen,
@@ -81,6 +82,17 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
     URL.revokeObjectURL(url);
   }
 
+  const [exportingWord, setExportingWord] = useState(false);
+
+  async function downloadWord() {
+    setExportingWord(true);
+    try {
+      await exportWord(draft, sections, slugify(draft.title));
+    } finally {
+      setExportingWord(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50/60 flex flex-col print:bg-white">
       <header className="shrink-0 border-b border-gray-200 bg-white print:hidden">
@@ -104,6 +116,13 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
               className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors"
             >
               <FileDown className="h-3.5 w-3.5" /> Export Markdown
+            </button>
+            <button
+              onClick={downloadWord}
+              disabled={exportingWord}
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50"
+            >
+              <FileDown className="h-3.5 w-3.5" /> {exportingWord ? 'Exporting…' : 'Export Word'}
             </button>
             <button
               onClick={() => window.print()}
