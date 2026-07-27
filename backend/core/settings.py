@@ -38,7 +38,6 @@ INSTALLED_APPS = [
     'Answers.apps.AnswersConfig',
     'GeneratedSection.apps.GeneratedsectionConfig',
     'GeneratedDocument.apps.GenerateddocumentConfig',
-    'ExportArtifact.apps.ExportartifactConfig',
     'rest_framework',
     'corsheaders',
     'drf_spectacular',
