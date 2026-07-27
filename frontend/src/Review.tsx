@@ -1,18 +1,20 @@
 import { useState } from 'react';
-import type { Draft, SrsSection } from './types';
+import type { Draft, SectionStatus } from './types';
 import { buildGeneratedMarkdown } from './markdown';
 import { TEMPLATES } from './data';
 import { generateDocument } from './lib/generate';
 import { exportWord } from './lib/exportWord';
 import { useScreenEnter } from './lib/animations';
-import { slugify } from './helpers';
+import { sectionStatus, slugify } from './helpers';
 import {
   BookOpen,
   ArrowLeft,
   FileDown,
   FileText,
   CheckCircle2,
+  CircleDot,
   Circle,
+  AlertCircle,
   Pencil,
   RotateCcw,
   Check,
@@ -26,6 +28,20 @@ interface ReviewProps {
   onBackToWizard: () => void;
 }
 
+function domId(sectionId: string) {
+  return `section-${sectionId}`;
+}
+
+function jumpTo(sectionId: string) {
+  document.getElementById(domId(sectionId))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function ContentsStatusIcon({ status }: { status: SectionStatus }) {
+  if (status === 'complete') return <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-brand-600" strokeWidth={2} />;
+  if (status === 'in_progress') return <CircleDot className="h-3.5 w-3.5 shrink-0 text-brand-500" strokeWidth={2} />;
+  return <Circle className="h-3.5 w-3.5 shrink-0 text-gray-300" strokeWidth={2} />;
+}
+
 export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToWizard }: ReviewProps) {
   const screenRef = useScreenEnter();
   const template = TEMPLATES.find((t) => t.id === draft.templateId);
@@ -35,12 +51,10 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
   const [editText, setEditText] = useState('');
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
-  function hasGenerated(s: SrsSection) {
-    return Boolean(draft.generated[s.id]?.trim());
-  }
-
-  const generatedCount = sections.filter(hasGenerated).length;
-  const pct = sections.length === 0 ? 0 : Math.round((generatedCount / sections.length) * 100);
+  const statuses = new Map(sections.map((s) => [s.id, sectionStatus(s, draft)]));
+  const completeCount = sections.filter((s) => statuses.get(s.id) === 'complete').length;
+  const needsInputCount = sections.length - completeCount;
+  const pct = sections.length === 0 ? 0 : Math.round((completeCount / sections.length) * 100);
 
   function startEdit(sectionId: string) {
     setEditingId(sectionId);
@@ -96,9 +110,9 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
   }
 
   return (
-    <div ref={screenRef} className="min-h-screen bg-paper flex flex-col print:bg-white">
-      <header className="shrink-0 border-b border-gray-200 bg-white print:hidden">
-        <div className="mx-auto max-w-5xl px-8 h-14 flex items-center justify-between">
+    <div ref={screenRef} className="min-h-screen bg-paper print:bg-white">
+      <header className="border-b border-gray-200 bg-white print:hidden">
+        <div className="mx-auto max-w-6xl px-8 h-14 flex items-center justify-between">
           <button
             onClick={onBackToDrafts}
             className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors"
@@ -136,7 +150,7 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
         </div>
       </header>
 
-      <main className="flex-1 mx-auto w-full max-w-5xl px-8 py-8 print:p-0 print:max-w-none">
+      <main className="mx-auto max-w-6xl px-8 py-8 print:max-w-none print:p-0">
         {/* Summary strip */}
         <div className="animate-fade-up mb-6 flex items-center justify-between print:hidden">
           <div>
@@ -148,35 +162,16 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
           <div className="flex items-center gap-4">
             <div className="text-right">
               <div className="text-2xl font-semibold text-brand-600">{pct}%</div>
-              <div className="text-[11px] text-gray-400 uppercase tracking-wide">generated</div>
+              <div className="text-[11px] text-gray-400 uppercase tracking-wide">complete</div>
             </div>
             <div className="h-10 w-px bg-gray-200" />
             <div className="text-right">
-              <div className="text-2xl font-semibold text-gray-800">
-                {generatedCount}/{sections.length}
+              <div className={`text-2xl font-semibold ${needsInputCount > 0 ? 'text-amber-600' : 'text-gray-800'}`}>
+                {needsInputCount}
               </div>
-              <div className="text-[11px] text-gray-400 uppercase tracking-wide">sections done</div>
+              <div className="text-[11px] text-gray-400 uppercase tracking-wide">need input</div>
             </div>
           </div>
-        </div>
-
-        {/* Section status chips */}
-        <div className="stagger mb-6 flex flex-wrap gap-2 print:hidden">
-          {sections.map((s, i) => (
-            <span
-              key={s.id}
-              style={{ '--i': i } as React.CSSProperties}
-              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] text-gray-600"
-            >
-              {hasGenerated(s) ? (
-                <CheckCircle2 className="h-3 w-3 text-brand-600" />
-              ) : (
-                <Circle className="h-3 w-3 text-gray-300" />
-              )}
-              <span className="font-mono text-gray-400">{s.id}</span>
-              {s.title}
-            </span>
-          ))}
         </div>
 
         {/* Overall progress bar */}
@@ -186,94 +181,129 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
           </div>
         </div>
 
-        {/* Document preview */}
-        <div className="animate-scale-in rounded-xl border border-gray-200 bg-white shadow-soft print:rounded-none print:border-0 print:shadow-none">
-          <div className="px-8 py-3 border-b border-gray-100 flex items-center gap-2 text-xs text-gray-400 print:hidden">
-            <FileText className="h-3.5 w-3.5" />
-            <span className="font-mono">{slugify(draft.title)}.md</span>
-          </div>
-          <div className="px-10 py-8 max-w-[72ch] mx-auto max-h-[calc(100vh-360px)] overflow-y-auto print:max-h-none print:overflow-visible print:p-0 print:max-w-none md-doc">
-            <div className="doc-cover">
-              <div className="doc-eyebrow">Software Requirements Specification</div>
-              <h1 className="doc-title">{draft.title}</h1>
-              {draft.subtitle && <p className="doc-subtitle">{draft.subtitle}</p>}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
+          {/* Document preview */}
+          <div className="animate-scale-in rounded-xl border border-gray-200 bg-white shadow-soft print:rounded-none print:border-0 print:shadow-none">
+            <div className="px-8 py-3 border-b border-gray-100 flex items-center gap-2 text-xs text-gray-400 print:hidden">
+              <FileText className="h-3.5 w-3.5" />
+              <span className="font-mono">{slugify(draft.title)}.md</span>
             </div>
+            <div className="px-10 py-8 max-w-[72ch] mx-auto print:max-w-none print:p-0 md-doc">
+              <div className="doc-cover">
+                <div className="doc-eyebrow">Software Requirements Specification</div>
+                <h1 className="doc-title">{draft.title}</h1>
+                {draft.subtitle && <p className="doc-subtitle">{draft.subtitle}</p>}
+              </div>
 
-            {sections.map((section) => {
-              const content = draft.generated[section.id];
-              const attached = section.diagram ? draft.diagrams[section.id] : undefined;
-              const editing = editingId === section.id;
-              const regenerating = regeneratingId === section.id;
+              {sections.map((section) => {
+                const status = statuses.get(section.id) ?? 'not_started';
+                const content = draft.generated[section.id];
+                const attached = section.diagram ? draft.diagrams[section.id] : undefined;
+                const editing = editingId === section.id;
+                const regenerating = regeneratingId === section.id;
+                const showCallout = !editing && status === 'not_started';
 
-              return (
-                <section key={section.id} className="doc-section group/section">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="doc-h2 !mt-0 !border-0 !pb-0">
-                      <span className="doc-num">{section.id}</span> {section.title}
-                    </h2>
-                    {!editing && (
-                      <div className="flex shrink-0 items-center gap-3 opacity-0 transition-opacity group-hover/section:opacity-100 print:hidden">
-                        <button
-                          onClick={() => startEdit(section.id)}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-brand-600"
-                        >
-                          <Pencil className="h-3 w-3" /> Edit
-                        </button>
-                        <button
-                          onClick={() => regenerateSection(section.id)}
-                          disabled={regenerating}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-brand-600 disabled:opacity-50"
-                        >
-                          <RotateCcw className={`h-3 w-3 ${regenerating ? 'animate-spin' : ''}`} />
-                          {regenerating ? 'Regenerating…' : 'Regenerate'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {editing ? (
-                    <div className="doc-question">
-                      <textarea
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        rows={8}
-                        className="w-full rounded-lg border border-brand-300 bg-white px-3 py-2.5 text-sm leading-relaxed text-gray-800 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-                      />
-                      <div className="mt-2 flex items-center gap-3 print:hidden">
-                        <button
-                          onClick={saveEdit}
-                          className="inline-flex items-center gap-1 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
-                        >
-                          <Check className="h-3.5 w-3.5" /> Save
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
-                        >
-                          <X className="h-3.5 w-3.5" /> Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="doc-question">
-                      {content ? (
-                        content
-                          .split('\n')
-                          .filter((line) => line.trim().length > 0)
-                          .map((line, i) => <p key={i}>{line}</p>)
-                      ) : (
-                        <p className="md-placeholder">Not generated yet.</p>
+                return (
+                  <section key={section.id} id={domId(section.id)} className="doc-section group/section scroll-mt-8">
+                    <div className="flex items-center justify-between gap-3">
+                      <h2 className="doc-h2 !mt-0 !border-0 !pb-0 flex items-center gap-2">
+                        <span className="doc-num">{section.id}</span> {section.title}
+                        {status !== 'complete' && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                            <AlertCircle className="h-3 w-3" /> Needs input
+                          </span>
+                        )}
+                      </h2>
+                      {!editing && (
+                        <div className="flex shrink-0 items-center gap-3 opacity-0 transition-opacity group-hover/section:opacity-100 print:hidden">
+                          <button
+                            onClick={() => startEdit(section.id)}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-brand-600"
+                          >
+                            <Pencil className="h-3 w-3" /> Edit
+                          </button>
+                          <button
+                            onClick={() => regenerateSection(section.id)}
+                            disabled={regenerating}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-brand-600 disabled:opacity-50"
+                          >
+                            <RotateCcw className={`h-3 w-3 ${regenerating ? 'animate-spin' : ''}`} />
+                            {regenerating ? 'Regenerating…' : 'Regenerate'}
+                          </button>
+                        </div>
                       )}
                     </div>
-                  )}
 
-                  {attached && (
-                    <img className="doc-diagram" src={attached.dataUrl} alt={attached.fileName} />
-                  )}
-                </section>
-              );
-            })}
+                    {editing ? (
+                      <div className="doc-question">
+                        <textarea
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          rows={8}
+                          className="w-full rounded-lg border border-brand-300 bg-white px-3 py-2.5 text-sm leading-relaxed text-gray-800 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                        />
+                        <div className="mt-2 flex items-center gap-3 print:hidden">
+                          <button
+                            onClick={saveEdit}
+                            className="inline-flex items-center gap-1 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+                          >
+                            <Check className="h-3.5 w-3.5" /> Save
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+                          >
+                            <X className="h-3.5 w-3.5" /> Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className={`doc-question ${
+                          showCallout ? 'rounded-r-md border-l-2 border-amber-300 bg-amber-50/40 py-2 pl-4' : ''
+                        }`}
+                      >
+                        {content ? (
+                          content
+                            .split('\n')
+                            .filter((line) => line.trim().length > 0)
+                            .map((line, i) => <p key={i}>{line}</p>)
+                        ) : (
+                          <p className="md-placeholder">Not generated yet.</p>
+                        )}
+                      </div>
+                    )}
+
+                    {attached && (
+                      <img className="doc-diagram" src={attached.dataUrl} alt={attached.fileName} />
+                    )}
+                  </section>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Contents — jump to any section */}
+          <aside className="rounded-xl border border-gray-200 bg-white shadow-soft overflow-hidden lg:sticky lg:top-8 lg:self-start print:hidden">
+            <div className="border-b border-gray-100 px-4 py-3">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Contents</span>
+            </div>
+            <nav className="max-h-[75vh] space-y-0.5 overflow-y-auto px-2 py-2">
+              {sections.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => jumpTo(s.id)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-gray-50"
+                >
+                  <ContentsStatusIcon status={statuses.get(s.id) ?? 'not_started'} />
+                  <span className="truncate text-xs">
+                    <span className="mr-1.5 font-mono text-gray-400">{s.id}</span>
+                    <span className="font-serif text-gray-800">{s.title}</span>
+                  </span>
+                </button>
+              ))}
+            </nav>
+          </aside>
         </div>
 
         <div className="mt-6 print:hidden">

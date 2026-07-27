@@ -31,13 +31,13 @@ function draftSectionProse(section: SrsSection, answers: Draft['answers'], hasDi
     .filter((answer): answer is string => Boolean(answer));
 
   if (paragraphs.length === 0) {
-    return `_No input was provided for ${section.title}. Answer its questions in the wizard, then regenerate this section._`;
+    return `No input was provided for ${section.title}. Answer its questions in the wizard, then regenerate this section.`;
   }
 
   let prose = paragraphs.join('\n\n');
   if (hasDiagram) {
     const kind = section.diagram?.type.toLowerCase() ?? 'diagram';
-    prose += `\n\n*(See the attached ${kind} for ${section.title.toLowerCase()}.)*`;
+    prose += `\n\nSee the attached ${kind} for ${section.title.toLowerCase()}.`;
   }
   return prose;
 }
