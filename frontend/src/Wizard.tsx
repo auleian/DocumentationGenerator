@@ -382,12 +382,19 @@ function DiagramCard({
   error: string | null;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) onAttach(file);
     e.target.value = '';
   }
+
+  useEffect(() => {
+    if (attached) popIn(imgRef.current);
+    // Re-fire on every successful attach/replace, keyed off the image content itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attached?.dataUrl]);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-gray-50/50 overflow-hidden">
@@ -406,7 +413,12 @@ function DiagramCard({
       {attached ? (
         <div className="p-4 space-y-3">
           <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-            <img src={attached.dataUrl} alt={type} className="max-h-64 w-full object-contain" />
+            <img
+              ref={imgRef}
+              src={attached.dataUrl}
+              alt={type}
+              className="max-h-64 w-full object-contain"
+            />
           </div>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-1.5 text-xs font-medium text-brand-700">
