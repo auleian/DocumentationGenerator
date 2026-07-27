@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Draft, DiagramAttachment, SectionStatus, SrsSection } from './types';
 import { TEMPLATES } from './data';
 import { sectionStatus, sectionProgress, statusLabel, statusTextClass } from './helpers';
 import { buildDocumentHtml } from './markdown';
+import { popIn } from './lib/animations';
 import {
   BookOpen,
   Check,

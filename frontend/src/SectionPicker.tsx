@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react';
 import type { Draft, SrsSection } from './types';
 import { TEMPLATES } from './data';
+import { useScreenEnter, staggerRowsIn } from './lib/animations';
 import { BookOpen, Check, ArrowRight } from 'lucide-react';
 
 interface SectionPickerProps {
@@ -44,10 +46,19 @@ function groupSections(sections: SrsSection[]): TopGroupBucket[] {
 }
 
 export default function SectionPicker({ draft, onUpdateDraft, onContinue, onBack }: SectionPickerProps) {
+  const screenRef = useScreenEnter();
+  const listRef = useRef<HTMLDivElement>(null);
+
   const template = TEMPLATES.find((t) => t.id === draft.templateId);
   const sections = template?.sections ?? [];
   const groups = groupSections(sections);
   const selectedCount = draft.selectedSectionIds.length;
+
+  useEffect(() => {
+    staggerRowsIn(listRef.current, 'button');
+    // Only stagger in once, when this template's section list first renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template?.id]);
 
   function isSelected(id: string) {
     return draft.selectedSectionIds.includes(id);
@@ -69,7 +80,7 @@ export default function SectionPicker({ draft, onUpdateDraft, onContinue, onBack
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/60">
+    <div ref={screenRef} className="min-h-screen bg-gray-50/60">
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto max-w-3xl px-8 py-4 flex items-center gap-3">
           <button
@@ -112,7 +123,7 @@ export default function SectionPicker({ draft, onUpdateDraft, onContinue, onBack
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div ref={listRef} className="space-y-6">
           {groups.map((group) => (
             <div key={group.name} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
               <div className="border-b border-gray-100 bg-gray-50/60 px-4 py-2.5">

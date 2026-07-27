@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Draft } from './types';
 import { TEMPLATES } from './data';
 import { generateDocument } from './lib/generate';
+import { useScreenEnter, loopingPulse } from './lib/animations';
 import { BookOpen, Sparkles, RotateCcw, ArrowRight } from 'lucide-react';
 
 interface GenerateProps {
@@ -15,6 +16,17 @@ export default function Generate({ draft, onUpdateDraft, onDone, onBack }: Gener
   const [error, setError] = useState<string | null>(null);
   const template = TEMPLATES.find((t) => t.id === draft.templateId);
   const sectionCount = draft.selectedSectionIds.length;
+
+  const screenRef = useScreenEnter();
+  const pulseRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (draft.generationStatus !== 'generating' && draft.generationStatus !== 'idle') return;
+    const anim = loopingPulse(pulseRef.current);
+    return () => {
+      anim?.revert();
+    };
+  }, [draft.generationStatus]);
 
   async function runGeneration() {
     setError(null);
@@ -47,7 +59,7 @@ export default function Generate({ draft, onUpdateDraft, onDone, onBack }: Gener
   }, []);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white">
+    <div ref={screenRef} className="flex min-h-screen items-center justify-center bg-white">
       <div className="mx-auto max-w-md px-8 text-center">
         <button
           onClick={onBack}
@@ -89,7 +101,10 @@ export default function Generate({ draft, onUpdateDraft, onDone, onBack }: Gener
           </>
         ) : (
           <>
-            <div className="mx-auto mb-4 flex h-14 w-14 animate-pulse-soft items-center justify-center rounded-full bg-brand-50 text-brand-600">
+            <div
+              ref={pulseRef}
+              className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-50 text-brand-600"
+            >
               <Sparkles className="h-6 w-6" strokeWidth={1.8} />
             </div>
             <h1 className="text-lg font-semibold text-gray-900">Generating your document…</h1>

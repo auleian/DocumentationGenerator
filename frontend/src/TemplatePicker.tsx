@@ -1,5 +1,6 @@
 import type { Template } from './types';
 import { TEMPLATES } from './data';
+import { useScreenEnter } from './lib/animations';
 import { BookOpen, FileText, Sparkles } from 'lucide-react';
 
 interface TemplatePickerProps {
@@ -8,8 +9,10 @@ interface TemplatePickerProps {
 }
 
 export default function TemplatePicker({ onSelect, onBackHome }: TemplatePickerProps) {
+  const screenRef = useScreenEnter();
+
   return (
-    <div className="min-h-screen bg-gray-50/60">
+    <div ref={screenRef} className="min-h-screen bg-gray-50/60">
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto max-w-5xl px-8 py-4 flex items-center gap-3">
           <button
