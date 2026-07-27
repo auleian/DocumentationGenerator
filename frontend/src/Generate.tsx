@@ -1,50 +1,106 @@
-import { useEffect, useState } from 'react';
-import type { Draft } from './types';
-import { TEMPLATES } from './data';
-import { generateDocument } from './lib/generate';
-import { BookOpen, Sparkles, RotateCcw, ArrowRight } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import type { ApiDocumentType, ApiSection } from './types';
+import { generateDocument, getNextSection, getSession, listGeneratedSections } from './lib/api';
+import { topLevelSections } from './lib/catalog';
+import { BookOpen, Sparkles, RotateCcw } from 'lucide-react';
+
+const POLL_INTERVAL_MS = 2000;
 
 interface GenerateProps {
-  draft: Draft;
-  onUpdateDraft: (draft: Draft) => void;
-  onDone: () => void;
+  sessionId: string;
+  documentTypes: ApiDocumentType[];
+  sections: ApiSection[];
+  onDone: (generatedDocumentId: string) => void;
   onBack: () => void;
 }
 
-export default function Generate({ draft, onUpdateDraft, onDone, onBack }: GenerateProps) {
+type Phase = 'loading' | 'polishing' | 'assembling' | 'failed' | 'error';
+
+export default function Generate({ sessionId, documentTypes, sections, onDone, onBack }: GenerateProps) {
+  const [phase, setPhase] = useState<Phase>('loading');
   const [error, setError] = useState<string | null>(null);
-  const template = TEMPLATES.find((t) => t.id === draft.templateId);
-  const sectionCount = draft.selectedSectionIds.length;
+  const expectedIdsRef = useRef<string[]>([]);
+  const pollTimer = useRef<number | undefined>(undefined);
+  const cancelledRef = useRef(false);
 
-  async function runGeneration() {
-    setError(null);
-    onUpdateDraft({ ...draft, generationStatus: 'generating' });
+  function startPolling() {
+    window.clearInterval(pollTimer.current);
+    pollTimer.current = window.setInterval(async () => {
+      try {
+        const all = await listGeneratedSections();
+        const relevant = all.filter(
+          (gs) => gs.session === sessionId && expectedIdsRef.current.includes(gs.section),
+        );
+        const ready = relevant.filter((gs) => gs.status === 'ready');
+        const failed = relevant.filter((gs) => gs.status === 'failed');
 
-    if (!template) {
-      setError('Could not find the template for this draft.');
-      onUpdateDraft({ ...draft, generationStatus: 'error' });
-      return;
-    }
-
-    try {
-      const generated = await generateDocument({
-        template,
-        selectedSectionIds: draft.selectedSectionIds,
-        answers: draft.answers,
-        diagrams: draft.diagrams,
-      });
-      onUpdateDraft({ ...draft, generated, generationStatus: 'done', lastEdited: 'just now' });
-    } catch {
-      setError('Something went wrong generating your document.');
-      onUpdateDraft({ ...draft, generationStatus: 'error' });
-    }
+        if (failed.length > 0) {
+          window.clearInterval(pollTimer.current);
+          if (!cancelledRef.current) setPhase('failed');
+          return;
+        }
+        if (ready.length === expectedIdsRef.current.length) {
+          window.clearInterval(pollTimer.current);
+          if (cancelledRef.current) return;
+          setPhase('assembling');
+          const doc = await generateDocument(sessionId);
+          if (!cancelledRef.current) onDone(doc.id);
+        }
+      } catch {
+        window.clearInterval(pollTimer.current);
+        if (!cancelledRef.current) {
+          setPhase('error');
+          setError('Something went wrong while checking on your document.');
+        }
+      }
+    }, POLL_INTERVAL_MS);
   }
 
   useEffect(() => {
-    runGeneration();
-    // Runs once when this screen mounts (i.e. right after the author clicks "Generate").
+    cancelledRef.current = false;
+
+    async function start() {
+      try {
+        const session = await getSession(sessionId);
+        const expected = topLevelSections(sections, documentTypes, session.document_type).map((s) => s.id);
+        if (cancelledRef.current) return;
+        if (expected.length === 0) {
+          setPhase('error');
+          setError('Could not determine this document’s sections.');
+          return;
+        }
+        expectedIdsRef.current = expected;
+        setPhase('polishing');
+        startPolling();
+      } catch {
+        if (!cancelledRef.current) {
+          setPhase('error');
+          setError('Could not reach the server.');
+        }
+      }
+    }
+
+    start();
+    return () => {
+      cancelledRef.current = true;
+      window.clearInterval(pollTimer.current);
+    };
+    // Runs once per mount for this session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessionId]);
+
+  async function retry() {
+    setError(null);
+    setPhase('polishing');
+    try {
+      // Re-triggers polishing for every completed section (see next_section's own behavior).
+      await getNextSection(sessionId);
+    } catch {
+      setPhase('failed');
+      return;
+    }
+    startPolling();
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-white">
@@ -57,34 +113,20 @@ export default function Generate({ draft, onUpdateDraft, onDone, onBack }: Gener
           <span className="font-medium">The Documentation Generator</span>
         </button>
 
-        {draft.generationStatus === 'error' ? (
+        {phase === 'failed' || phase === 'error' ? (
           <>
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-500">
               <Sparkles className="h-6 w-6" strokeWidth={1.8} />
             </div>
             <h1 className="text-lg font-semibold text-gray-900">Generation failed</h1>
-            <p className="mt-1.5 text-sm text-gray-500">{error ?? 'Please try again.'}</p>
+            <p className="mt-1.5 text-sm text-gray-500">
+              {error ?? 'One or more sections failed to generate.'}
+            </p>
             <button
-              onClick={runGeneration}
+              onClick={retry}
               className="mt-6 inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors"
             >
               <RotateCcw className="h-4 w-4" /> Try again
-            </button>
-          </>
-        ) : draft.generationStatus === 'done' ? (
-          <>
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-100 text-brand-700">
-              <Sparkles className="h-6 w-6" strokeWidth={1.8} />
-            </div>
-            <h1 className="text-lg font-semibold text-gray-900">Your document is ready</h1>
-            <p className="mt-1.5 text-sm text-gray-500">
-              Review what was generated — you can edit or regenerate any section.
-            </p>
-            <button
-              onClick={onDone}
-              className="mt-6 inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors"
-            >
-              View document <ArrowRight className="h-4 w-4" />
             </button>
           </>
         ) : (
@@ -92,10 +134,10 @@ export default function Generate({ draft, onUpdateDraft, onDone, onBack }: Gener
             <div className="mx-auto mb-4 flex h-14 w-14 animate-pulse-soft items-center justify-center rounded-full bg-brand-50 text-brand-600">
               <Sparkles className="h-6 w-6" strokeWidth={1.8} />
             </div>
-            <h1 className="text-lg font-semibold text-gray-900">Generating your document…</h1>
-            <p className="mt-1.5 text-sm text-gray-500">
-              Drafting {sectionCount} section{sectionCount === 1 ? '' : 's'} from your answers.
-            </p>
+            <h1 className="text-lg font-semibold text-gray-900">
+              {phase === 'assembling' ? 'Assembling your document…' : 'Polishing your sections…'}
+            </h1>
+            <p className="mt-1.5 text-sm text-gray-500">This can take a little while — please don&apos;t close this tab.</p>
           </>
         )}
       </div>

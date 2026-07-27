@@ -1,69 +1,93 @@
-export type QuestionType = 'text' | 'textarea' | 'select';
-
-export interface Question {
+export interface ApiDocumentType {
   id: string;
-  label: string;
-  /** Title used in the assembled IEEE document (e.g. "Purpose") */
-  docTitle: string;
-  type: QuestionType;
-  placeholder?: string;
-  options?: string[];
-  help?: string;
+  name: string;
+  display_name: string;
+  created_at: string;
 }
 
-export interface DiagramSpec {
-  type: string;
-  reason: string;
-}
-
-/** An author-supplied diagram image attached to a section's diagram slot. */
-export interface DiagramAttachment {
-  dataUrl: string;
-  fileName: string;
-}
-
-export interface SrsSection {
-  /** IEEE number, e.g. "1.1", "3.1.2" */
+export interface ApiSection {
   id: string;
-  title: string;
-  description: string;
-  questions: Question[];
-  diagram?: DiagramSpec;
-  /** True only for sections that don't apply to every project (e.g. AI/ML). */
-  optional?: boolean;
-  /** Top-level grouping for the section picker, e.g. "3. Requirements". */
-  topGroup: string;
-  /** Mid-level grouping within a topGroup, e.g. "3.1 External Interfaces". Omit for direct children. */
-  subGroup?: string;
+  number: string;
+  name: string;
+  order: number;
+  parent: string | null;
+  document_type: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface Template {
+export interface ApiQuestion {
+  id: string;
+  text: string;
+  section: string;
+  order: number;
+  is_required: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiAnswer {
+  id: string;
+  session: string;
+  question: string;
+  value: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type GeneratedSectionStatus = 'pending' | 'polishing' | 'ready' | 'failed';
+
+export interface ApiGeneratedSection {
+  id: string;
+  session: string;
+  section: string;
+  content: string;
+  status: GeneratedSectionStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiGeneratedDocument {
+  id: string;
+  session: string;
+  content: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DocumentSessionStatus =
+  | 'in_progress'
+  | 'answers_complete'
+  | 'generating'
+  | 'generated'
+  | 'exported';
+
+export interface DocumentSession {
+  id: string;
+  document_type: string;
+  status: DocumentSessionStatus;
+  created_at: string;
+  expires_at: string | null;
+}
+
+/** GET .../next_section/ — discriminated union, callers must branch on shape. */
+export type NextSectionResponse =
+  | { section: { number: string; name: string }; questions: ApiQuestionStub[] }
+  | { message: string; status: DocumentSessionStatus };
+
+export interface ApiQuestionStub {
+  id: string;
+  text: string;
+  is_required: boolean;
+}
+
+/** Static display card for the template picker; not all of these exist as a backend DocumentType yet. */
+export interface TemplateCard {
   id: string;
   name: string;
   description: string;
-  sections: SrsSection[];
-  /** Shown disabled with a "Coming soon" badge in the template picker. */
   comingSoon?: boolean;
 }
 
-export type SectionStatus = 'not_started' | 'in_progress' | 'complete';
-
-export type GenerationStatus = 'idle' | 'generating' | 'done' | 'error';
-
-export interface Draft {
-  id: string;
-  title: string;
-  subtitle: string;
-  progress: number;
-  lastEdited: string;
-  templateId: string;
-  /** IDs of the sections the author chose to include, from the template's tree. */
-  selectedSectionIds: string[];
-  answers: Record<string, string>;
-  diagrams: Record<string, DiagramAttachment>;
-  /** AI-generated (and possibly author-edited) prose per section, keyed by section id. */
-  generated: Record<string, string>;
-  generationStatus: GenerationStatus;
-}
-
-export type Screen = 'home' | 'drafts' | 'templates' | 'sections' | 'wizard' | 'generate' | 'review';
+export type Screen = 'home' | 'drafts' | 'templates' | 'wizard' | 'generate' | 'review';
