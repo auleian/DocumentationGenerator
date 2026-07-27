@@ -23,7 +23,7 @@ export interface GenerateInput {
   diagrams: Draft['diagrams'];
 }
 
-const MOCK_LATENCY_MS = 1400;
+export const MOCK_LATENCY_MS = 1400;
 
 function draftSectionProse(section: SrsSection, answers: Draft['answers'], hasDiagram: boolean): string {
   const paragraphs = section.questions
