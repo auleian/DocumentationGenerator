@@ -54,7 +54,7 @@ function App() {
   }
 
   if (screen === 'home') {
-    return <Home onBrowseDrafts={() => setScreen('drafts')} onNewSrs={goToTemplatePicker} />;
+    return <Home onBrowseDrafts={() => setScreen('drafts')} onStartNew={goToTemplatePicker} />;
   }
 
   if (screen === 'drafts') {
@@ -62,7 +62,7 @@ function App() {
       <Drafts
         drafts={drafts}
         onOpenDraft={openDraft}
-        onNewSrs={goToTemplatePicker}
+        onStartNew={goToTemplatePicker}
         onBackHome={() => setScreen('home')}
       />
     );
@@ -116,7 +116,7 @@ function App() {
     );
   }
 
-  return <Home onBrowseDrafts={() => setScreen('drafts')} onNewSrs={goToTemplatePicker} />;
+  return <Home onBrowseDrafts={() => setScreen('drafts')} onStartNew={goToTemplatePicker} />;
 }
 
 export default App;

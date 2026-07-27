@@ -15,13 +15,13 @@ import {
 interface DraftsProps {
   drafts: Draft[];
   onOpenDraft: (id: string) => void;
-  onNewSrs: () => void;
+  onStartNew: () => void;
   onBackHome: () => void;
 }
 
-export default function Drafts({ drafts, onOpenDraft, onNewSrs, onBackHome }: DraftsProps) {
+export default function Drafts({ drafts, onOpenDraft, onStartNew, onBackHome }: DraftsProps) {
   return (
-    <div className="min-h-screen bg-gray-50/60">
+    <div className="min-h-screen bg-paper">
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto max-w-6xl px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -36,19 +36,19 @@ export default function Drafts({ drafts, onOpenDraft, onNewSrs, onBackHome }: Dr
             <span className="text-sm font-semibold text-gray-800">Drafts</span>
           </div>
           <button
-            onClick={onNewSrs}
+            onClick={onStartNew}
             className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 transition-colors"
           >
-            <Plus className="h-3.5 w-3.5" /> New SRS
+            <Plus className="h-3.5 w-3.5" /> New document
           </button>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-8 py-10">
         <div className="animate-fade-up mb-8">
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Your SRS drafts</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Your documents</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Software Requirements Specifications, built section by section.
+            Everything you're drafting, across every document type.
           </p>
         </div>
 
@@ -59,9 +59,9 @@ export default function Drafts({ drafts, onOpenDraft, onNewSrs, onBackHome }: Dr
             </div>
           ))}
 
-          {/* New SRS card */}
+          {/* New document card */}
           <button
-            onClick={onNewSrs}
+            onClick={onStartNew}
             style={{ '--i': drafts.length } as React.CSSProperties}
             className="group flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-brand-300 bg-brand-50/40 hover:bg-brand-50 hover:border-brand-500 transition-all p-6 min-h-[180px] text-left"
           >
@@ -69,8 +69,8 @@ export default function Drafts({ drafts, onOpenDraft, onNewSrs, onBackHome }: Dr
               <Plus className="h-5 w-5" strokeWidth={2.4} />
             </div>
             <div className="text-center">
-              <div className="text-sm font-semibold text-brand-700">New SRS</div>
-              <div className="text-xs text-brand-600/70 mt-0.5">Start a fresh specification</div>
+              <div className="text-sm font-semibold text-brand-700">New document</div>
+              <div className="text-xs text-brand-600/70 mt-0.5">Start from any document type</div>
             </div>
           </button>
         </div>
