@@ -3,7 +3,7 @@ import type { Draft, DiagramAttachment, SectionStatus, SrsSection } from './type
 import { TEMPLATES } from './data';
 import { sectionStatus, sectionProgress, statusLabel, statusTextClass } from './helpers';
 import { buildDocumentHtml } from './markdown';
-import { popIn } from './lib/animations';
+import { popIn, useScreenEnter } from './lib/animations';
 import {
   BookOpen,
   Check,
@@ -43,6 +43,7 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
   const [activeIdx, setActiveIdx] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [savedFlash, setSavedFlash] = useState(false);
+  const screenRef = useScreenEnter();
 
   const template = TEMPLATES.find((t) => t.id === draft.templateId);
   const sections = (template?.sections ?? []).filter((s) => draft.selectedSectionIds.includes(s.id));
@@ -117,7 +118,7 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
   );
 
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div ref={screenRef} className="h-screen flex flex-col bg-white">
       {/* Top bar */}
       <header className="shrink-0 border-b border-gray-200 bg-white">
         <div className="px-6 h-14 flex items-center justify-between">

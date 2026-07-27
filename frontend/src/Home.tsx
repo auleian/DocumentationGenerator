@@ -8,6 +8,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { TEMPLATES } from './data';
+import { useScreenEnter } from './lib/animations';
 
 interface HomeProps {
   onBrowseDrafts: () => void;
@@ -33,8 +34,10 @@ const HOW_IT_WORKS = [
 ];
 
 export default function Home({ onBrowseDrafts, onStartNew }: HomeProps) {
+  const screenRef = useScreenEnter();
+
   return (
-    <div className="min-h-screen bg-paper relative overflow-hidden">
+    <div ref={screenRef} className="min-h-screen bg-paper relative overflow-hidden">
       {/* Decorative background */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 h-[480px] w-[480px] rounded-full bg-brand-100/60 blur-3xl opacity-70" />
