@@ -7,3 +7,6 @@ django-cors-headers>=4.3.0
 
 # Local Environment Variables
 python-dotenv>=1.0.1
+
+# LLM API client (OpenRouter is OpenAI-API-compatible)
+openai>=1.0.0
