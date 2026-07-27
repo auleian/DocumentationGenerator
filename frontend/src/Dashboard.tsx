@@ -100,7 +100,9 @@ function DraftCard({ draft, onOpen }: { draft: Draft; onOpen: () => void }) {
             <Clock className="h-3 w-3" /> {draft.lastEdited}
           </span>
         </div>
-        <h3 className="mt-3.5 text-[15px] font-semibold text-gray-900 leading-snug">{draft.title}</h3>
+        <h3 className="mt-3.5 text-[15px] font-semibold text-gray-900 leading-snug">
+          {draft.title.trim() || 'Untitled document'}
+        </h3>
         <p className="mt-1 text-xs text-gray-500 leading-relaxed">{draft.subtitle}</p>
 
         {/* Status row */}

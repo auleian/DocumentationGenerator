@@ -66,4 +66,12 @@ export interface Draft {
   generationStatus: GenerationStatus;
 }
 
-export type Screen = 'home' | 'drafts' | 'templates' | 'sections' | 'wizard' | 'generate' | 'review';
+export type Screen =
+  | 'home'
+  | 'drafts'
+  | 'templates'
+  | 'details'
+  | 'sections'
+  | 'wizard'
+  | 'generate'
+  | 'review';

@@ -5,6 +5,7 @@ import { useLocalStorageState } from './useLocalStorageState';
 import Home from './Home';
 import Drafts from './Dashboard';
 import TemplatePicker from './TemplatePicker';
+import ProjectDetails from './ProjectDetails';
 import SectionPicker from './SectionPicker';
 import Wizard from './Wizard';
 import Generate from './Generate';
@@ -33,8 +34,8 @@ function App() {
     const id = `draft-${Date.now()}`;
     const draft: Draft = {
       id,
-      title: `Untitled ${template.name}`,
-      subtitle: 'New specification',
+      title: '',
+      subtitle: '',
       progress: 0,
       lastEdited: 'just now',
       templateId: template.id,
@@ -46,7 +47,7 @@ function App() {
     };
     setDrafts((prev) => [draft, ...prev]);
     setActiveDraftId(id);
-    setScreen('sections');
+    setScreen('details');
   }
 
   function updateDraft(updated: Draft) {
@@ -72,13 +73,24 @@ function App() {
     return <TemplatePicker onSelect={selectTemplate} onBackHome={() => setScreen('home')} />;
   }
 
+  if (screen === 'details' && activeDraft) {
+    return (
+      <ProjectDetails
+        draft={activeDraft}
+        onUpdateDraft={updateDraft}
+        onContinue={() => setScreen('sections')}
+        onBack={() => setScreen('templates')}
+      />
+    );
+  }
+
   if (screen === 'sections' && activeDraft) {
     return (
       <SectionPicker
         draft={activeDraft}
         onUpdateDraft={updateDraft}
         onContinue={() => setScreen('wizard')}
-        onBack={() => setScreen('templates')}
+        onBack={() => setScreen('details')}
       />
     );
   }

@@ -4,6 +4,7 @@ import { buildGeneratedMarkdown } from './markdown';
 import { TEMPLATES } from './data';
 import { generateDocument } from './lib/generate';
 import { exportWord } from './lib/exportWord';
+import { useScreenEnter } from './lib/animations';
 import { slugify } from './helpers';
 import {
   BookOpen,
@@ -26,6 +27,7 @@ interface ReviewProps {
 }
 
 export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToWizard }: ReviewProps) {
+  const screenRef = useScreenEnter();
   const template = TEMPLATES.find((t) => t.id === draft.templateId);
   const sections = (template?.sections ?? []).filter((s) => draft.selectedSectionIds.includes(s.id));
 
@@ -94,7 +96,7 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
   }
 
   return (
-    <div className="min-h-screen bg-paper flex flex-col print:bg-white">
+    <div ref={screenRef} className="min-h-screen bg-paper flex flex-col print:bg-white">
       <header className="shrink-0 border-b border-gray-200 bg-white print:hidden">
         <div className="mx-auto max-w-5xl px-8 h-14 flex items-center justify-between">
           <button
