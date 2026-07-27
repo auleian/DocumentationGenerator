@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import type { Draft, DiagramAttachment, SectionStatus } from './types';
+import type { Draft, DiagramAttachment, SectionStatus, SrsSection } from './types';
 import { TEMPLATES } from './data';
 import { sectionStatus, sectionProgress, statusLabel, statusTextClass } from './helpers';
 import { buildDocumentHtml } from './markdown';
@@ -249,7 +249,7 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
               <span className="text-[11px] text-gray-400 font-mono">IEEE 830</span>
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-5">
-              <PreviewPane draft={draft} />
+              <PreviewPane draft={draft} sections={sections} />
             </div>
           </aside>
         )}
@@ -448,7 +448,7 @@ function DiagramCard({
   );
 }
 
-function PreviewPane({ draft }: { draft: Draft }) {
-  const html = useMemo(() => buildDocumentHtml(draft), [draft]);
+function PreviewPane({ draft, sections }: { draft: Draft; sections: SrsSection[] }) {
+  const html = useMemo(() => buildDocumentHtml(draft, sections), [draft, sections]);
   return <div className="md-doc" dangerouslySetInnerHTML={{ __html: html }} />;
 }

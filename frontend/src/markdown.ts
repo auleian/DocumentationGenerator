@@ -1,5 +1,4 @@
 import type { Draft, SrsSection } from './types';
-import { SECTIONS } from './data';
 
 function esc(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -23,11 +22,11 @@ function questionNumber(sectionId: string, qIdx: number): string {
   return `${sectionId}.${qIdx + 1}`;
 }
 
-export function buildDocumentHtml(draft: Draft, opts?: { onlySectionId?: string }): string {
-  const sections = opts?.onlySectionId
-    ? SECTIONS.filter((s) => s.id === opts.onlySectionId)
-    : SECTIONS;
-
+/**
+ * Raw-answer preview (what the author has typed so far, before generation).
+ * Used by the Wizard's live preview panel while answering questions.
+ */
+export function buildDocumentHtml(draft: Draft, sections: SrsSection[]): string {
   let html = '';
   html += `<div class="doc-cover">`;
   html += `<div class="doc-eyebrow">Software Requirements Specification</div>`;
@@ -35,13 +34,13 @@ export function buildDocumentHtml(draft: Draft, opts?: { onlySectionId?: string 
   if (draft.subtitle) html += `<p class="doc-subtitle">${esc(draft.subtitle)}</p>`;
   html += `</div>`;
 
-  for (let i = 0; i < sections.length; i++) {
-    html += renderSection(sections[i], draft, i);
+  for (const section of sections) {
+    html += renderSection(section, draft);
   }
   return html;
 }
 
-function renderSection(s: SrsSection, draft: Draft, _idx: number): string {
+function renderSection(s: SrsSection, draft: Draft): string {
   let html = `<section class="doc-section">`;
   html += `<h2 class="doc-h2"><span class="doc-num">${esc(s.id)}</span> ${esc(s.title)}</h2>`;
   html += `<p class="doc-desc">${esc(s.description)}</p>`;
@@ -74,41 +73,27 @@ function renderSection(s: SrsSection, draft: Draft, _idx: number): string {
   return html;
 }
 
-/** Real Markdown text (as opposed to buildDocumentHtml's preview-only HTML) for export. */
-export function buildMarkdown(draft: Draft): string {
+/** Real Markdown text of the generated document, for export. */
+export function buildGeneratedMarkdown(draft: Draft, sections: SrsSection[]): string {
   let md = `# ${draft.title}\n\n`;
   if (draft.subtitle) md += `*${draft.subtitle}*\n\n`;
   md += `---\n\n`;
 
-  for (const section of SECTIONS) {
-    md += renderSectionMarkdown(section, draft);
+  for (const section of sections) {
+    md += renderGeneratedSectionMarkdown(section, draft);
   }
   return md;
 }
 
-function renderSectionMarkdown(s: SrsSection, draft: Draft): string {
+function renderGeneratedSectionMarkdown(s: SrsSection, draft: Draft): string {
   let md = `## ${s.id} ${s.title}\n\n`;
-  md += `*${s.description}*\n\n`;
 
-  for (let q = 0; q < s.questions.length; q++) {
-    const question = s.questions[q];
-    const qnum = questionNumber(s.id, q);
-    md += `### ${qnum} ${question.docTitle}\n\n`;
-    const v = draft.answers[question.id];
-    md += v && v.trim() ? `${v.trim()}\n\n` : `_Not yet answered._\n\n`;
-  }
+  const content = draft.generated[s.id];
+  md += content ? `${content}\n\n` : `_Not generated yet._\n\n`;
 
-  if (s.diagram) {
-    const attached = draft.diagrams[s.id];
-    const dnum = questionNumber(s.id, s.questions.length);
-    md += `### ${dnum} Diagram\n\n`;
-    md += `**${s.diagram.type}** — ${s.diagram.reason}\n\n`;
-    if (attached) {
-      md += `![${attached.fileName}](${attached.dataUrl})\n\n`;
-      md += `_Attached: \`${attached.fileName}\`_\n\n`;
-    } else {
-      md += `_No diagram attached yet._\n\n`;
-    }
+  const attached = s.diagram ? draft.diagrams[s.id] : undefined;
+  if (attached) {
+    md += `![${attached.fileName}](${attached.dataUrl})\n\n`;
   }
 
   return md;

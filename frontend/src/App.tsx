@@ -109,6 +109,7 @@ function App() {
     return (
       <Review
         draft={activeDraft}
+        onUpdateDraft={updateDraft}
         onBackToDrafts={() => setScreen('drafts')}
         onBackToWizard={() => setScreen('wizard')}
       />
