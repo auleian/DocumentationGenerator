@@ -12,8 +12,16 @@ interface GenerateProps {
   onBack: () => void;
 }
 
+const STAGES = [
+  'Reading your answers…',
+  'Structuring the sections…',
+  'Writing in AIBOS house style…',
+  'Finishing up…',
+];
+
 export default function Generate({ draft, onUpdateDraft, onDone, onBack }: GenerateProps) {
   const [error, setError] = useState<string | null>(null);
+  const [stageIndex, setStageIndex] = useState(0);
   const template = TEMPLATES.find((t) => t.id === draft.templateId);
   const sectionCount = draft.selectedSectionIds.length;
 
@@ -26,6 +34,15 @@ export default function Generate({ draft, onUpdateDraft, onDone, onBack }: Gener
     return () => {
       anim?.revert();
     };
+  }, [draft.generationStatus]);
+
+  useEffect(() => {
+    if (draft.generationStatus !== 'generating' && draft.generationStatus !== 'idle') return;
+    setStageIndex(0);
+    const interval = setInterval(() => {
+      setStageIndex((i) => Math.min(i + 1, STAGES.length - 1));
+    }, 420);
+    return () => clearInterval(interval);
   }, [draft.generationStatus]);
 
   async function runGeneration() {
@@ -107,7 +124,7 @@ export default function Generate({ draft, onUpdateDraft, onDone, onBack }: Gener
             >
               <Sparkles className="h-6 w-6" strokeWidth={1.8} />
             </div>
-            <h1 className="text-lg font-semibold text-gray-900">Generating your document…</h1>
+            <h1 className="text-lg font-semibold text-gray-900">{STAGES[stageIndex]}</h1>
             <p className="mt-1.5 text-sm text-gray-500">
               Drafting {sectionCount} section{sectionCount === 1 ? '' : 's'} from your answers.
             </p>
