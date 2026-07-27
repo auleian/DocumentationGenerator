@@ -1,25 +1,28 @@
-import type { Draft } from './types';
-import { SECTIONS } from './data';
-import { sectionProgress } from './helpers';
-import {
-  FileText,
-  Plus,
-  Clock,
-  ArrowRight,
-  BookOpen,
-  CheckCircle2,
-  CircleDot,
-  Circle,
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import type { DocumentSession, DocumentSessionStatus } from './types';
+import { listSessions } from './lib/api';
+import type { SessionNicknames } from './lib/sessionNicknames';
+import { FileText, Plus, Clock, ArrowRight, BookOpen, Loader2 } from 'lucide-react';
 
 interface DraftsProps {
-  drafts: Draft[];
-  onOpenDraft: (id: string) => void;
+  nicknames: SessionNicknames;
+  onOpenDraft: (sessionId: string) => void;
   onNewSrs: () => void;
   onBackHome: () => void;
 }
 
-export default function Drafts({ drafts, onOpenDraft, onNewSrs, onBackHome }: DraftsProps) {
+export default function Drafts({ nicknames, onOpenDraft, onNewSrs, onBackHome }: DraftsProps) {
+  const [sessions, setSessions] = useState<DocumentSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listSessions()
+      .then((s) => setSessions([...s].sort((a, b) => b.created_at.localeCompare(a.created_at))))
+      .catch(() => setError('Could not load your drafts.'))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50/60">
       <header className="border-b border-gray-200 bg-white">
@@ -46,45 +49,90 @@ export default function Drafts({ drafts, onOpenDraft, onNewSrs, onBackHome }: Dr
 
       <main className="mx-auto max-w-6xl px-8 py-10">
         <div className="animate-fade-up mb-8">
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Your SRS drafts</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Software Requirements Specifications, built section by section.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Your drafts</h1>
+          <p className="mt-1 text-sm text-gray-500">Documents you&apos;ve started, in progress or complete.</p>
         </div>
 
-        <div className="stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {drafts.map((d, i) => (
-            <div key={d.id} style={{ '--i': i } as React.CSSProperties}>
-              <DraftCard draft={d} onOpen={() => onOpenDraft(d.id)} />
-            </div>
-          ))}
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          </div>
+        ) : error ? (
+          <p className="text-sm text-red-600">{error}</p>
+        ) : (
+          <div className="stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sessions.map((s, i) => (
+              <div key={s.id} style={{ '--i': i } as React.CSSProperties}>
+                <DraftCard session={s} nickname={nicknames[s.id]} onOpen={() => onOpenDraft(s.id)} />
+              </div>
+            ))}
 
-          {/* New SRS card */}
-          <button
-            onClick={onNewSrs}
-            style={{ '--i': drafts.length } as React.CSSProperties}
-            className="group flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-brand-300 bg-brand-50/40 hover:bg-brand-50 hover:border-brand-500 transition-all p-6 min-h-[180px] text-left"
-          >
-            <div className="h-11 w-11 rounded-full bg-brand-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
-              <Plus className="h-5 w-5" strokeWidth={2.4} />
-            </div>
-            <div className="text-center">
-              <div className="text-sm font-semibold text-brand-700">New SRS</div>
-              <div className="text-xs text-brand-600/70 mt-0.5">Start a fresh specification</div>
-            </div>
-          </button>
-        </div>
+            <button
+              onClick={onNewSrs}
+              style={{ '--i': sessions.length } as React.CSSProperties}
+              className="group flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-brand-300 bg-brand-50/40 hover:bg-brand-50 hover:border-brand-500 transition-all p-6 min-h-[180px] text-left"
+            >
+              <div className="h-11 w-11 rounded-full bg-brand-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Plus className="h-5 w-5" strokeWidth={2.4} />
+              </div>
+              <div className="text-center">
+                <div className="text-sm font-semibold text-brand-700">New SRS</div>
+                <div className="text-xs text-brand-600/70 mt-0.5">Start a fresh specification</div>
+              </div>
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
-function DraftCard({ draft, onOpen }: { draft: Draft; onOpen: () => void }) {
-  const pct = Math.round(draft.progress * 100);
-  const completedSections = SECTIONS.filter((s) => sectionProgress(s, draft) === 1).length;
-  const inProgress = SECTIONS.filter(
-    (s) => sectionProgress(s, draft) > 0 && sectionProgress(s, draft) < 1,
-  ).length;
+function statusLabel(status: DocumentSessionStatus): string {
+  switch (status) {
+    case 'in_progress':
+      return 'In progress';
+    case 'answers_complete':
+      return 'Answers complete';
+    case 'generating':
+      return 'Generating';
+    case 'generated':
+      return 'Generated';
+    case 'exported':
+      return 'Exported';
+    default:
+      return status;
+  }
+}
+
+function statusClass(status: DocumentSessionStatus): string {
+  return status === 'generated' || status === 'exported'
+    ? 'text-brand-700 bg-brand-50'
+    : status === 'generating' || status === 'answers_complete'
+      ? 'text-brand-600 bg-brand-50'
+      : 'text-gray-500 bg-gray-100';
+}
+
+function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+}
+
+function DraftCard({
+  session,
+  nickname,
+  onOpen,
+}: {
+  session: DocumentSession;
+  nickname?: string;
+  onOpen: () => void;
+}) {
+  const title = nickname ?? `Untitled ${session.document_type.toUpperCase()}`;
 
   return (
     <div className="group h-full rounded-xl border border-gray-200 bg-white hover:border-brand-300 hover:shadow-card transition-all overflow-hidden flex flex-col">
@@ -94,41 +142,15 @@ function DraftCard({ draft, onOpen }: { draft: Draft; onOpen: () => void }) {
             <FileText className="h-4.5 w-4.5" strokeWidth={1.8} />
           </div>
           <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 font-mono">
-            <Clock className="h-3 w-3" /> {draft.lastEdited}
+            <Clock className="h-3 w-3" /> {relativeTime(session.created_at)}
           </span>
         </div>
-        <h3 className="mt-3.5 text-[15px] font-semibold text-gray-900 leading-snug">{draft.title}</h3>
-        <p className="mt-1 text-xs text-gray-500 leading-relaxed">{draft.subtitle}</p>
+        <h3 className="mt-3.5 text-[15px] font-semibold text-gray-900 leading-snug">{title}</h3>
 
-        {/* Status row */}
-        <div className="mt-4 flex items-center gap-3 text-[11px]">
-          <span className="inline-flex items-center gap-1 text-brand-700">
-            <CheckCircle2 className="h-3 w-3" /> {completedSections} done
-          </span>
-          {inProgress > 0 && (
-            <span className="inline-flex items-center gap-1 text-brand-500">
-              <CircleDot className="h-3 w-3" /> {inProgress} in progress
-            </span>
-          )}
-          <span className="inline-flex items-center gap-1 text-gray-400">
-            <Circle className="h-3 w-3" /> {SECTIONS.length - completedSections - inProgress} left
-          </span>
-        </div>
-
-        {/* Progress bar — solid color */}
         <div className="mt-4">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
-              {completedSections}/{SECTIONS.length} sections
-            </span>
-            <span className="text-xs font-semibold text-brand-600">{pct}%</span>
-          </div>
-          <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
-            <div
-              className="bar-grow h-full rounded-full bg-brand-500"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
+          <span className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ${statusClass(session.status)}`}>
+            {statusLabel(session.status)}
+          </span>
         </div>
       </div>
 
