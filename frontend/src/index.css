@@ -161,7 +161,7 @@ body {
   @apply text-brand-500 mr-1.5 font-mono text-[13px];
 }
 .doc-question p {
-  @apply text-sm leading-relaxed text-gray-700 my-1.5;
+  @apply font-serif text-[15px] leading-relaxed text-gray-700 my-2;
 }
 .doc-tag {
   @apply inline-block font-mono text-[12px] bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded;

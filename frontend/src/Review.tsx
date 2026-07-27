@@ -94,7 +94,7 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/60 flex flex-col print:bg-white">
+    <div className="min-h-screen bg-paper flex flex-col print:bg-white">
       <header className="shrink-0 border-b border-gray-200 bg-white print:hidden">
         <div className="mx-auto max-w-5xl px-8 h-14 flex items-center justify-between">
           <button
@@ -190,7 +190,7 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
             <FileText className="h-3.5 w-3.5" />
             <span className="font-mono">{slugify(draft.title)}.md</span>
           </div>
-          <div className="px-10 py-8 max-h-[calc(100vh-360px)] overflow-y-auto print:max-h-none print:overflow-visible print:p-0 md-doc">
+          <div className="px-10 py-8 max-w-[72ch] mx-auto max-h-[calc(100vh-360px)] overflow-y-auto print:max-h-none print:overflow-visible print:p-0 print:max-w-none md-doc">
             <div className="doc-cover">
               <div className="doc-eyebrow">Software Requirements Specification</div>
               <h1 className="doc-title">{draft.title}</h1>
