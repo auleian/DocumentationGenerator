@@ -1,6 +1,7 @@
 import os
 import threading
 from pathlib import Path
+from django.db import connection
 from openai import OpenAI
 from .models import GeneratedSection
 from Answers.models import Answer
@@ -66,6 +67,12 @@ def polish_section_answers(session, section):
             )
         except Exception:
             GeneratedSection.objects.filter(id=gs.id).update(status="failed")
+        finally:
+            # This runs on a thread Django didn't spawn for a request, so its
+            # DB connection isn't closed by Django's normal request lifecycle.
+            # Left open, it holds SQLite's single write lock indefinitely and
+            # the next next_section call fails with "database is locked".
+            connection.close()
 
     threading.Thread(target=do_the_work).start()
     return gs
