@@ -44,8 +44,13 @@ class DocumentSessionViewSet(viewsets.ModelViewSet):
                     ]
                 })
             else:
-                # This section is fully answered — trigger background polishing for it
-                polish_section_answers(session, section)
+                # This section is fully answered — trigger background polishing for it,
+                # unless it's already been polished (avoids re-polishing on every call).
+                already_ready = GeneratedSection.objects.filter(
+                    session=session, section=section, status='ready'
+                ).exists()
+                if not already_ready:
+                    polish_section_answers(session, section)
 
         session.status = "answers_complete"
         session.save()

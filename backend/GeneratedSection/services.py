@@ -1,6 +1,44 @@
+import os
 import threading
-import time
+from pathlib import Path
+from django.db import connection
+from openai import OpenAI
 from .models import GeneratedSection
+from Answers.models import Answer
+
+STYLE_GUIDE_PATH = Path(__file__).resolve().parent / "style_guide.md"
+STYLE_GUIDE = STYLE_GUIDE_PATH.read_text(encoding="utf-8")
+
+OPENROUTER_MODEL = "openai/gpt-oss-20b:free"
+
+
+def build_prompt(section, raw_answer_text):
+    return (
+        f"{STYLE_GUIDE}\n\n"
+        f"## Section\n{section.number} {section.name}\n\n"
+        f"## Section instructions\n{section.template_instructions}\n\n"
+        f"## Raw answers\n{raw_answer_text}"
+    )
+
+
+def get_section_answers_text(session, section):
+    def get_all_questions_for_section(sec):
+        questions = list(sec.questions.filter(is_required=True))
+        for sub in sec.subsections.all():
+            questions += get_all_questions_for_section(sub)
+        return questions
+
+    questions = get_all_questions_for_section(section)
+    answer_by_question = {
+        a.question_id: a.value
+        for a in Answer.objects.filter(session=session, question__in=questions)
+    }
+
+    return "\n\n".join(
+        f"Q: {q.text}\nA: {answer_by_question.get(q.id, '')}"
+        for q in questions
+    )
+
 
 def polish_section_answers(session, section):
     gs, _ = GeneratedSection.objects.update_or_create(
@@ -10,14 +48,31 @@ def polish_section_answers(session, section):
 
     def do_the_work():
         try:
-            time.sleep(3)  # placeholder for the real LLM call, later
-            fake_content = f"Polished content for section {section.number} (session {session.id})"
+            answers_text = get_section_answers_text(session, section)
+            prompt = build_prompt(section, answers_text)
+
+            client = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=os.environ.get("OPENROUTER_API_KEY"),
+            )
+            response = client.chat.completions.create(
+                model=OPENROUTER_MODEL,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result_text = response.choices[0].message.content
+
             GeneratedSection.objects.filter(id=gs.id).update(
-                content=fake_content,
+                content=result_text,
                 status="ready"
             )
         except Exception:
             GeneratedSection.objects.filter(id=gs.id).update(status="failed")
+        finally:
+            # This runs on a thread Django didn't spawn for a request, so its
+            # DB connection isn't closed by Django's normal request lifecycle.
+            # Left open, it holds SQLite's single write lock indefinitely and
+            # the next next_section call fails with "database is locked".
+            connection.close()
 
     threading.Thread(target=do_the_work).start()
     return gs

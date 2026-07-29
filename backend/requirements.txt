@@ -7,3 +7,11 @@ django-cors-headers>=4.3.0
 
 # Local Environment Variables
 python-dotenv>=1.0.1
+
+# LLM API client (OpenRouter is OpenAI-API-compatible)
+openai>=1.0.0
+
+# Document export (ExportArtifact: markdown -> html/pdf/docx)
+markdown>=3.6
+xhtml2pdf>=0.2.16
+python-docx>=1.1.0

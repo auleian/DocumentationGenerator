@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from ExportArtifact.models import ExportArtifact
 from ExportArtifact.services import convert_to_html, convert_to_pdf, convert_to_docx, compute_hash
 
+
 class GeneratedDocumentViewSet(viewsets.ModelViewSet):
     queryset = GeneratedDocument.objects.all()
     serializer_class = GeneratedDocumentSerializer
