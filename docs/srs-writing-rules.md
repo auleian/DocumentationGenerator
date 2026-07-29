@@ -23,7 +23,7 @@ Reference rules to follow when filling in the SRS template. Keep entries scoped,
 
 ## Style
 - Adopt and follow a style guide; it overrides general grammar rules.
-- Write in the second person.
+- Write in the second person — applies to explanatory/help text, not to SRS requirement statements (see SRS-Specific Conventions).
 - Place conditions before instructions, not after.
 - Format code-related text in code font.
 - Use active voice over passive voice; imperative verbs are typically active.
@@ -34,6 +34,16 @@ Reference rules to follow when filling in the SRS template. Keep entries scoped,
 - Prefer short sentences.
 - Cut extraneous words.
 - Clarity takes precedence over all other rules.
+
+## SRS-Specific Conventions
+- Write requirements in third person only — describe "the system," never address the reader as "you."
+- Use "The system shall..." for requirements, not "You will..." or "The system will..."
+- Never use second-person imperative phrasing anywhere in generated SRS content.
+- Use requirement keywords consistently: "shall" = mandatory, "should" = recommended, "may" = optional.
+- Don't mix modal verbs loosely within one requirement.
+- Avoid vague/unquantifiable claims — "fast," "user-friendly," "reliable," etc. aren't acceptable alone.
+- Pair any qualitative claim with a measurable criterion (a number, threshold, or condition).
+- Every requirement must be independently testable/verifiable.
 
 ## Clauses & Grammar
 - Reduce subordinate clauses: if a clause extends the same idea, keep it in the sentence; if it branches into a new idea, split it into a new sentence.
