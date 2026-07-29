@@ -54,6 +54,11 @@ function App() {
     setDrafts((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
   }
 
+  function deleteDraft(id: string) {
+    setDrafts((prev) => prev.filter((d) => d.id !== id));
+    if (activeDraftId === id) setActiveDraftId(null);
+  }
+
   if (screen === 'home') {
     return <Home onBrowseDrafts={() => setScreen('drafts')} onStartNew={goToTemplatePicker} />;
   }
@@ -65,6 +70,7 @@ function App() {
         onOpenDraft={openDraft}
         onStartNew={goToTemplatePicker}
         onBackHome={() => setScreen('home')}
+        onDeleteDraft={deleteDraft}
       />
     );
   }

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Draft } from './types';
 import { SECTIONS } from './data';
 import { sectionProgress } from './helpers';
@@ -11,6 +12,8 @@ import {
   CheckCircle2,
   CircleDot,
   Circle,
+  Trash2,
+  X,
 } from 'lucide-react';
 
 interface DraftsProps {
@@ -18,9 +21,16 @@ interface DraftsProps {
   onOpenDraft: (id: string) => void;
   onStartNew: () => void;
   onBackHome: () => void;
+  onDeleteDraft: (id: string) => void;
 }
 
-export default function Drafts({ drafts, onOpenDraft, onStartNew, onBackHome }: DraftsProps) {
+export default function Drafts({
+  drafts,
+  onOpenDraft,
+  onStartNew,
+  onBackHome,
+  onDeleteDraft,
+}: DraftsProps) {
   const screenRef = useScreenEnter();
 
   return (
@@ -58,7 +68,11 @@ export default function Drafts({ drafts, onOpenDraft, onStartNew, onBackHome }: 
         <div className="stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {drafts.map((d, i) => (
             <div key={d.id} style={{ '--i': i } as React.CSSProperties}>
-              <DraftCard draft={d} onOpen={() => onOpenDraft(d.id)} />
+              <DraftCard
+                draft={d}
+                onOpen={() => onOpenDraft(d.id)}
+                onDelete={() => onDeleteDraft(d.id)}
+              />
             </div>
           ))}
 
@@ -82,7 +96,16 @@ export default function Drafts({ drafts, onOpenDraft, onStartNew, onBackHome }: 
   );
 }
 
-function DraftCard({ draft, onOpen }: { draft: Draft; onOpen: () => void }) {
+function DraftCard({
+  draft,
+  onOpen,
+  onDelete,
+}: {
+  draft: Draft;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
   const pct = Math.round(draft.progress * 100);
   const completedSections = SECTIONS.filter((s) => sectionProgress(s, draft) === 1).length;
   const inProgress = SECTIONS.filter(
@@ -96,9 +119,21 @@ function DraftCard({ draft, onOpen }: { draft: Draft; onOpen: () => void }) {
           <div className="h-9 w-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
             <FileText className="h-4.5 w-4.5" strokeWidth={1.8} />
           </div>
-          <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 font-mono">
-            <Clock className="h-3 w-3" /> {draft.lastEdited}
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 font-mono">
+              <Clock className="h-3 w-3" /> {draft.lastEdited}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirming(true);
+              }}
+              aria-label="Delete document"
+              className="rounded-md p-1 text-gray-300 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
         <h3 className="mt-3.5 text-[15px] font-semibold text-gray-900 leading-snug">
           {draft.title.trim() || 'Untitled document'}
@@ -137,15 +172,35 @@ function DraftCard({ draft, onOpen }: { draft: Draft; onOpen: () => void }) {
         </div>
       </div>
 
-      <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50">
-        <button
-          onClick={onOpen}
-          className="w-full flex items-center justify-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800 group/btn"
-        >
-          Continue
-          <ArrowRight className="h-3.5 w-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
-        </button>
-      </div>
+      {confirming ? (
+        <div className="flex items-center justify-between gap-3 border-t border-red-100 bg-red-50/60 px-5 py-3">
+          <span className="text-xs text-red-700">Delete this document?</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setConfirming(false)}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+            >
+              <X className="h-3 w-3" /> Cancel
+            </button>
+            <button
+              onClick={onDelete}
+              className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
+            >
+              <Trash2 className="h-3 w-3" /> Delete
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50">
+          <button
+            onClick={onOpen}
+            className="w-full flex items-center justify-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800 group/btn"
+          >
+            Continue
+            <ArrowRight className="h-3.5 w-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
