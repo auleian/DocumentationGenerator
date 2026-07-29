@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import type { Draft, SrsSection } from './types';
-import { TEMPLATES } from './data';
+import type { ApiSection, Draft, SectionNode } from './types';
+import { useSrsCatalog } from './lib/sections';
+import { leafNodes } from './lib/catalog';
 import { useScreenEnter, staggerRowsIn } from './lib/animations';
 import { BookOpen, Check, ArrowRight } from 'lucide-react';
 
@@ -12,57 +13,53 @@ interface SectionPickerProps {
 }
 
 type GroupRow =
-  | { kind: 'section'; section: SrsSection }
-  | { kind: 'subgroup'; name: string; sections: SrsSection[] };
+  | { kind: 'section'; section: ApiSection }
+  | { kind: 'subgroup'; name: string; sections: ApiSection[] };
 
 interface TopGroupBucket {
   name: string;
   rows: GroupRow[];
 }
 
-/** A curated minimal SRS — the essentials, without the more specialized sections. */
-const CORE_SECTION_IDS = ['1.1', '1.2', '2.1', '2.2', '2.4', '3.2', '4'];
+/** A curated minimal SRS — the essentials, without the more specialized sections. Real Section.number values. */
+const CORE_SECTION_NUMBERS = ['1.1', '1.2', '2.1', '2.2', '2.4', '3.2', '4'];
 
-/** Groups sections by topGroup, preserving document order; subGroup items are nested. */
-function groupSections(sections: SrsSection[]): TopGroupBucket[] {
-  const buckets: TopGroupBucket[] = [];
-  for (const section of sections) {
-    let bucket = buckets.find((b) => b.name === section.topGroup);
-    if (!bucket) {
-      bucket = { name: section.topGroup, rows: [] };
-      buckets.push(bucket);
+/**
+ * Groups the real section tree for display: a top-level node with no children of its own renders
+ * as a single ungrouped section; otherwise its children become either a subgroup header (if that
+ * child itself has children) or a direct section row (if it's a leaf) — a fixed 3-level unroll
+ * that matches the seeded tree depth exactly.
+ */
+function groupTree(tree: SectionNode[]): TopGroupBucket[] {
+  return tree.map((top) => {
+    if (top.children.length === 0) {
+      return { name: top.section.name, rows: [{ kind: 'section', section: top.section }] };
     }
-    if (section.subGroup) {
-      const existing = bucket.rows.find(
-        (r): r is Extract<GroupRow, { kind: 'subgroup' }> => r.kind === 'subgroup' && r.name === section.subGroup,
-      );
-      if (existing) {
-        existing.sections.push(section);
-      } else {
-        bucket.rows.push({ kind: 'subgroup', name: section.subGroup, sections: [section] });
-      }
-    } else {
-      bucket.rows.push({ kind: 'section', section });
-    }
-  }
-  return buckets;
+    const rows: GroupRow[] = top.children.map((child) =>
+      child.children.length > 0
+        ? { kind: 'subgroup', name: child.section.name, sections: child.children.map((c) => c.section) }
+        : { kind: 'section', section: child.section },
+    );
+    return { name: top.section.name, rows };
+  });
 }
 
 export default function SectionPicker({ draft, onUpdateDraft, onContinue, onBack }: SectionPickerProps) {
   const screenRef = useScreenEnter();
   const listRef = useRef<HTMLDivElement>(null);
+  const { catalog, loading, error } = useSrsCatalog();
 
-  const template = TEMPLATES.find((t) => t.id === draft.templateId);
-  const sections = template?.sections ?? [];
-  const groups = groupSections(sections);
+  const tree = catalog?.tree ?? [];
+  const leaves = leafNodes(tree);
+  const groups = groupTree(tree);
   const selectedCount = draft.selectedSectionIds.length;
-  const selectedSections = sections.filter((s) => draft.selectedSectionIds.includes(s.id));
+  const selectedSections = leaves.filter((n) => draft.selectedSectionIds.includes(n.section.id)).map((n) => n.section);
 
   useEffect(() => {
     staggerRowsIn(listRef.current, 'button');
-    // Only stagger in once, when this template's section list first renders.
+    // Only stagger in once, when the section tree first renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [template?.id]);
+  }, [catalog]);
 
   function isSelected(id: string) {
     return draft.selectedSectionIds.includes(id);
@@ -76,16 +73,37 @@ export default function SectionPicker({ draft, onUpdateDraft, onContinue, onBack
   }
 
   function selectAll() {
-    onUpdateDraft({ ...draft, selectedSectionIds: sections.map((s) => s.id), lastEdited: 'just now' });
+    onUpdateDraft({ ...draft, selectedSectionIds: leaves.map((n) => n.section.id), lastEdited: 'just now' });
   }
 
   function selectCore() {
-    const ids = sections.filter((s) => CORE_SECTION_IDS.includes(s.id)).map((s) => s.id);
+    const ids = leaves.filter((n) => CORE_SECTION_NUMBERS.includes(n.section.number)).map((n) => n.section.id);
     onUpdateDraft({ ...draft, selectedSectionIds: ids, lastEdited: 'just now' });
   }
 
   function clearAll() {
     onUpdateDraft({ ...draft, selectedSectionIds: [], lastEdited: 'just now' });
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <p className="text-sm text-gray-500">Loading sections…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <div className="text-center">
+          <p className="text-sm text-red-600">{error}</p>
+          <button onClick={onBack} className="mt-3 text-sm font-medium text-brand-700 hover:text-brand-800">
+            Back
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -100,7 +118,7 @@ export default function SectionPicker({ draft, onUpdateDraft, onContinue, onBack
             <span className="font-medium">The Documentation Generator</span>
           </button>
           <span className="text-gray-300">/</span>
-          <span className="text-sm font-semibold text-gray-800">{template?.name ?? 'Document'}</span>
+          <span className="text-sm font-semibold text-gray-800">Software Requirements Specification</span>
         </div>
       </header>
 
@@ -117,7 +135,7 @@ export default function SectionPicker({ draft, onUpdateDraft, onContinue, onBack
 
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <span className="text-sm font-medium text-gray-700">
-            {selectedCount} of {sections.length} sections selected
+            {selectedCount} of {leaves.length} sections selected
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -195,8 +213,8 @@ export default function SectionPicker({ draft, onUpdateDraft, onContinue, onBack
               ) : (
                 selectedSections.map((s) => (
                   <div key={s.id} className="flex items-baseline gap-2">
-                    <span className="shrink-0 font-mono text-[11px] text-brand-600">{s.id}</span>
-                    <span className="truncate font-serif text-sm text-gray-800">{s.title}</span>
+                    <span className="shrink-0 font-mono text-[11px] text-brand-600">{s.number}</span>
+                    <span className="truncate font-serif text-sm text-gray-800">{s.name}</span>
                   </div>
                 ))
               )}
@@ -226,7 +244,7 @@ function SectionRow({
   checked,
   onToggle,
 }: {
-  section: SrsSection;
+  section: ApiSection;
   checked: boolean;
   onToggle: () => void;
 }) {
@@ -246,15 +264,9 @@ function SectionRow({
       </span>
       <span className="min-w-0">
         <span className="flex flex-wrap items-center gap-1.5">
-          <span className="font-mono text-xs text-gray-400">{section.id}</span>
-          <span className="text-sm font-medium text-gray-900">{section.title}</span>
-          {section.optional && (
-            <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
-              optional
-            </span>
-          )}
+          <span className="font-mono text-xs text-gray-400">{section.number}</span>
+          <span className="text-sm font-medium text-gray-900">{section.name}</span>
         </span>
-        <span className="mt-0.5 block text-xs text-gray-500">{section.description}</span>
       </span>
     </button>
   );

@@ -61,9 +61,17 @@ export interface Draft {
   selectedSectionIds: string[];
   answers: Record<string, string>;
   diagrams: Record<string, DiagramAttachment>;
-  /** AI-generated (and possibly author-edited) prose per section, keyed by section id. */
+  /** AI-generated (and possibly author-edited) prose per section, keyed by real Section id. */
   generated: Record<string, string>;
   generationStatus: GenerationStatus;
+  /** Real backend DocumentSession id backing this draft; null for legacy/local-only drafts. */
+  sessionId: string | null;
+  /** Question id -> Answer id, so the Wizard knows whether to POST or PATCH a given answer. */
+  answerIds: Record<string, string>;
+  /** Real GeneratedDocument id, set once /generate/ has succeeded at least once. */
+  generatedDocumentId: string | null;
+  /** Cached section-completion counts so Dashboard can render without its own fetch. */
+  sectionSummary: { total: number; complete: number; inProgress: number };
 }
 
 export type Screen =
@@ -76,7 +84,7 @@ export type Screen =
   | 'generate'
   | 'review';
 
-// --- Backend API types (not yet wired into the UI; see lib/api.ts, lib/catalog.ts) ---
+// --- Backend API types (see lib/api.ts, lib/catalog.ts, lib/sections.ts) ---
 
 export interface ApiDocumentType {
   id: string;
@@ -160,4 +168,13 @@ export interface ApiQuestionStub {
   id: string;
   text: string;
   is_required: boolean;
+}
+
+export type ExportFormat = 'html' | 'pdf' | 'docx';
+
+/** A Section node with its own questions and its children, built from the flat ApiSection[]/ApiQuestion[] lists. */
+export interface SectionNode {
+  section: ApiSection;
+  questions: ApiQuestion[];
+  children: SectionNode[];
 }

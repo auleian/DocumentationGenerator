@@ -57,6 +57,21 @@ class DocumentSessionViewSet(viewsets.ModelViewSet):
         return Response({"message": "All sections complete.", "status": session.status})
 
     @action(detail=True, methods=['post'])
+    def repolish_section(self, request, pk=None):
+        session = self.get_object()
+        section_id = request.query_params.get('section')
+        if not section_id:
+            return Response({"error": "section query param is required"}, status=400)
+
+        try:
+            section = Section.objects.get(id=section_id, document_type__name=session.document_type)
+        except Section.DoesNotExist:
+            return Response({"error": "section not found for this session's document type"}, status=404)
+
+        gs = polish_section_answers(session, section)
+        return Response({"id": str(gs.id), "section": str(section.id), "status": gs.status})
+
+    @action(detail=True, methods=['post'])
     def generate(self, request, pk=None):
         session = self.get_object()
 

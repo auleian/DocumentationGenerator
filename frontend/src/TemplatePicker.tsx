@@ -6,9 +6,10 @@ import { BookOpen, FileText, Sparkles } from 'lucide-react';
 interface TemplatePickerProps {
   onSelect: (templateId: string) => void;
   onBackHome: () => void;
+  creating?: boolean;
 }
 
-export default function TemplatePicker({ onSelect, onBackHome }: TemplatePickerProps) {
+export default function TemplatePicker({ onSelect, onBackHome, creating }: TemplatePickerProps) {
   const screenRef = useScreenEnter();
 
   return (
@@ -31,14 +32,18 @@ export default function TemplatePicker({ onSelect, onBackHome }: TemplatePickerP
         <div className="animate-fade-up mb-8">
           <h1 className="text-2xl font-semibold tracking-tight text-gray-900">What are you documenting?</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Pick a document type. You&apos;ll choose which sections apply next.
+            {creating ? 'Setting up your document…' : "Pick a document type. You'll choose which sections apply next."}
           </p>
         </div>
 
         <div className="stagger grid grid-cols-1 gap-4 md:grid-cols-3">
           {TEMPLATES.map((template, i) => (
             <div key={template.id} style={{ '--i': i } as React.CSSProperties}>
-              <TemplateCard template={template} onSelect={() => onSelect(template.id)} />
+              <TemplateCard
+                template={template}
+                onSelect={() => onSelect(template.id)}
+                disabled={creating}
+              />
             </div>
           ))}
         </div>
@@ -47,8 +52,17 @@ export default function TemplatePicker({ onSelect, onBackHome }: TemplatePickerP
   );
 }
 
-function TemplateCard({ template, onSelect }: { template: Template; onSelect: () => void }) {
-  const disabled = Boolean(template.comingSoon);
+function TemplateCard({
+  template,
+  onSelect,
+  disabled: forceDisabled,
+}: {
+  template: Template;
+  onSelect: () => void;
+  disabled?: boolean;
+}) {
+  const comingSoon = Boolean(template.comingSoon);
+  const disabled = comingSoon || Boolean(forceDisabled);
 
   return (
     <button
@@ -65,7 +79,7 @@ function TemplateCard({ template, onSelect }: { template: Template; onSelect: ()
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
           <FileText className="h-4.5 w-4.5" strokeWidth={1.8} />
         </div>
-        {disabled && (
+        {comingSoon && (
           <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">
             <Sparkles className="h-3 w-3" /> Coming soon
           </span>
@@ -73,7 +87,7 @@ function TemplateCard({ template, onSelect }: { template: Template; onSelect: ()
       </div>
       <h3 className="mt-3.5 font-serif text-lg font-semibold leading-snug text-gray-900">{template.name}</h3>
       <p className="mt-1.5 text-xs leading-relaxed text-gray-500">{template.description}</p>
-      {!disabled && (
+      {!comingSoon && (
         <p className="mt-4 text-xs font-medium text-brand-700 group-hover:text-brand-800">
           {template.sections.length} sections available →
         </p>

@@ -2,6 +2,9 @@ import { useState } from 'react';
 import type { Draft, Screen } from './types';
 import { MOCK_DRAFTS, TEMPLATES } from './data';
 import { useLocalStorageState } from './useLocalStorageState';
+import { createSession } from './lib/api';
+import { leafNodes } from './lib/catalog';
+import { loadSrsCatalog } from './lib/sections';
 import Home from './Home';
 import Drafts from './Dashboard';
 import TemplatePicker from './TemplatePicker';
@@ -27,27 +30,41 @@ function App() {
     setScreen('templates');
   }
 
-  function selectTemplate(templateId: string) {
-    const template = TEMPLATES.find((t) => t.id === templateId);
-    if (!template || template.comingSoon) return;
+  const [creatingDraft, setCreatingDraft] = useState(false);
 
-    const id = `draft-${Date.now()}`;
-    const draft: Draft = {
-      id,
-      title: '',
-      subtitle: '',
-      progress: 0,
-      lastEdited: 'just now',
-      templateId: template.id,
-      selectedSectionIds: template.sections.filter((s) => !s.optional).map((s) => s.id),
-      answers: {},
-      diagrams: {},
-      generated: {},
-      generationStatus: 'idle',
-    };
-    setDrafts((prev) => [draft, ...prev]);
-    setActiveDraftId(id);
-    setScreen('details');
+  async function selectTemplate(templateId: string) {
+    const template = TEMPLATES.find((t) => t.id === templateId);
+    if (!template || template.comingSoon || creatingDraft) return;
+
+    setCreatingDraft(true);
+    try {
+      const [session, catalog] = await Promise.all([createSession(template.id), loadSrsCatalog()]);
+      const id = `draft-${Date.now()}`;
+      const draft: Draft = {
+        id,
+        title: '',
+        subtitle: '',
+        progress: 0,
+        lastEdited: 'just now',
+        templateId: template.id,
+        selectedSectionIds: leafNodes(catalog.tree).map((n) => n.section.id),
+        answers: {},
+        diagrams: {},
+        generated: {},
+        generationStatus: 'idle',
+        sessionId: session.id,
+        answerIds: {},
+        generatedDocumentId: null,
+        sectionSummary: { total: leafNodes(catalog.tree).length, complete: 0, inProgress: 0 },
+      };
+      setDrafts((prev) => [draft, ...prev]);
+      setActiveDraftId(id);
+      setScreen('details');
+    } catch {
+      // Session/catalog fetch failed (backend unreachable) — stay on the template picker.
+    } finally {
+      setCreatingDraft(false);
+    }
   }
 
   function updateDraft(updated: Draft) {
