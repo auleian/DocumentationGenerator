@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Draft, Screen } from './types';
-import { MOCK_DRAFTS, TEMPLATES } from './data';
+import { TEMPLATES } from './data';
 import { useLocalStorageState } from './useLocalStorageState';
 import { createSession } from './lib/api';
 import { leafNodes } from './lib/catalog';
@@ -16,7 +16,7 @@ import Review from './Review';
 
 function App() {
   const [screen, setScreen] = useState<Screen>('home');
-  const [drafts, setDrafts] = useLocalStorageState<Draft[]>('docgen.drafts.v1', MOCK_DRAFTS);
+  const [drafts, setDrafts] = useLocalStorageState<Draft[]>('docgen.drafts.v1', []);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
 
   const activeDraft = drafts.find((d) => d.id === activeDraftId) || null;
@@ -44,7 +44,6 @@ function App() {
         id,
         title: '',
         subtitle: '',
-        progress: 0,
         lastEdited: 'just now',
         templateId: template.id,
         selectedSectionIds: leafNodes(catalog.tree).map((n) => n.section.id),
@@ -54,6 +53,7 @@ function App() {
         generationStatus: 'idle',
         sessionId: session.id,
         answerIds: {},
+        generatedSectionIds: {},
         generatedDocumentId: null,
         sectionSummary: { total: leafNodes(catalog.tree).length, complete: 0, inProgress: 0 },
       };

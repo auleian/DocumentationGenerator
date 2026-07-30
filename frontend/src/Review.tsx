@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Draft, SectionStatus } from './types';
 import { buildGeneratedMarkdown } from './markdown';
-import { TEMPLATES } from './data';
-import { generateDocument } from './lib/generate';
-import { exportWord } from './lib/exportWord';
+import {
+  exportGeneratedDocument,
+  getGeneratedDocument,
+  resolveMediaUrl,
+  triggerDocumentGeneration,
+  updateGeneratedSectionContent,
+} from './lib/api';
+import { leafNodes } from './lib/catalog';
+import { polishSections } from './lib/polling';
+import { useSrsCatalog } from './lib/sections';
 import { useScreenEnter } from './lib/animations';
 import { sectionStatus, slugify } from './helpers';
 import {
@@ -36,6 +43,16 @@ function jumpTo(sectionId: string) {
   document.getElementById(domId(sectionId))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function downloadText(content: string, filename: string) {
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function ContentsStatusIcon({ status }: { status: SectionStatus }) {
   if (status === 'complete') return <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-brand-600" strokeWidth={2} />;
   if (status === 'in_progress') return <CircleDot className="h-3.5 w-3.5 shrink-0 text-brand-500" strokeWidth={2} />;
@@ -44,15 +61,21 @@ function ContentsStatusIcon({ status }: { status: SectionStatus }) {
 
 export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToWizard }: ReviewProps) {
   const screenRef = useScreenEnter();
-  const template = TEMPLATES.find((t) => t.id === draft.templateId);
-  const sections = (template?.sections ?? []).filter((s) => draft.selectedSectionIds.includes(s.id));
+  const { catalog } = useSrsCatalog();
+  const sections = useMemo(() => {
+    if (!catalog) return [];
+    return leafNodes(catalog.tree).filter((n) => draft.selectedSectionIds.includes(n.section.id));
+  }, [catalog, draft.selectedSectionIds]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [exportingWord, setExportingWord] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
-  const statuses = new Map(sections.map((s) => [s.id, sectionStatus(s, draft)]));
-  const completeCount = sections.filter((s) => statuses.get(s.id) === 'complete').length;
+  const statuses = new Map(sections.map((s) => [s.section.id, sectionStatus(s, draft)]));
+  const completeCount = sections.filter((s) => statuses.get(s.section.id) === 'complete').length;
   const needsInputCount = sections.length - completeCount;
   const pct = sections.length === 0 ? 0 : Math.round((completeCount / sections.length) * 100);
 
@@ -61,51 +84,64 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
     setEditText(draft.generated[sectionId] ?? '');
   }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (!editingId) return;
+    const sectionId = editingId;
     onUpdateDraft({
       ...draft,
-      generated: { ...draft.generated, [editingId]: editText },
+      generated: { ...draft.generated, [sectionId]: editText },
       lastEdited: 'just now',
     });
     setEditingId(null);
+
+    const generatedSectionId = draft.generatedSectionIds[sectionId];
+    if (generatedSectionId && draft.sessionId) {
+      await updateGeneratedSectionContent(generatedSectionId, editText);
+      await triggerDocumentGeneration(draft.sessionId);
+    }
   }
 
   async function regenerateSection(sectionId: string) {
-    if (!template) return;
+    if (!draft.sessionId) return;
     setRegeneratingId(sectionId);
     try {
-      const result = await generateDocument({
-        template,
-        selectedSectionIds: [sectionId],
-        answers: draft.answers,
-        diagrams: draft.diagrams,
-      });
-      onUpdateDraft({ ...draft, generated: { ...draft.generated, ...result }, lastEdited: 'just now' });
+      const rows = await polishSections(draft.sessionId, [sectionId], { force: true });
+      const row = rows.find((r) => r.section === sectionId);
+      if (row?.status === 'ready') {
+        onUpdateDraft({
+          ...draft,
+          generated: { ...draft.generated, [sectionId]: row.content },
+          generatedSectionIds: { ...draft.generatedSectionIds, [sectionId]: row.id },
+          lastEdited: 'just now',
+        });
+        await triggerDocumentGeneration(draft.sessionId);
+      }
     } finally {
       setRegeneratingId(null);
     }
   }
 
-  function downloadMarkdown() {
-    const md = buildGeneratedMarkdown(draft, sections);
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${slugify(draft.title)}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function downloadMarkdown() {
+    if (draft.generatedDocumentId) {
+      const doc = await getGeneratedDocument(draft.generatedDocumentId);
+      downloadText(doc.content, `${slugify(draft.title)}.md`);
+    } else {
+      downloadText(buildGeneratedMarkdown(draft, sections), `${slugify(draft.title)}.md`);
+    }
   }
 
-  const [exportingWord, setExportingWord] = useState(false);
-
-  async function downloadWord() {
-    setExportingWord(true);
+  async function exportAs(format: 'docx' | 'pdf') {
+    if (!draft.generatedDocumentId) return;
+    setExportError(null);
+    const setBusy = format === 'docx' ? setExportingWord : setExportingPdf;
+    setBusy(true);
     try {
-      await exportWord(draft, sections, slugify(draft.title));
+      const artifact = await exportGeneratedDocument(draft.generatedDocumentId, format);
+      window.open(resolveMediaUrl(artifact.file), '_blank', 'noopener');
+    } catch {
+      setExportError(`Couldn't export as ${format === 'docx' ? 'Word' : 'PDF'}. Please try again.`);
     } finally {
-      setExportingWord(false);
+      setBusy(false);
     }
   }
 
@@ -134,20 +170,24 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
               <FileDown className="h-3.5 w-3.5" /> Export Markdown
             </button>
             <button
-              onClick={downloadWord}
-              disabled={exportingWord}
+              onClick={() => exportAs('docx')}
+              disabled={exportingWord || !draft.generatedDocumentId}
               className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50"
             >
               <FileDown className="h-3.5 w-3.5" /> {exportingWord ? 'Exporting…' : 'Export Word'}
             </button>
             <button
-              onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 transition-colors"
+              onClick={() => exportAs('pdf')}
+              disabled={exportingPdf || !draft.generatedDocumentId}
+              className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 transition-colors disabled:opacity-50"
             >
-              <FileDown className="h-3.5 w-3.5" /> Export PDF
+              <FileDown className="h-3.5 w-3.5" /> {exportingPdf ? 'Exporting…' : 'Export PDF'}
             </button>
           </div>
         </div>
+        {exportError && (
+          <div className="mx-auto max-w-6xl px-8 pb-2 text-xs text-red-600">{exportError}</div>
+        )}
       </header>
 
       <main className="mx-auto max-w-6xl px-8 py-8 print:max-w-none print:p-0">
@@ -195,10 +235,11 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
                 {draft.subtitle && <p className="doc-subtitle">{draft.subtitle}</p>}
               </div>
 
-              {sections.map((section) => {
+              {sections.map((node) => {
+                const section = node.section;
                 const status = statuses.get(section.id) ?? 'not_started';
                 const content = draft.generated[section.id];
-                const attached = section.diagram ? draft.diagrams[section.id] : undefined;
+                const attached = draft.diagrams[section.id];
                 const editing = editingId === section.id;
                 const regenerating = regeneratingId === section.id;
                 const showCallout = !editing && status === 'not_started';
@@ -207,7 +248,7 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
                   <section key={section.id} id={domId(section.id)} className="doc-section group/section scroll-mt-8">
                     <div className="flex items-center justify-between gap-3">
                       <h2 className="doc-h2 !mt-0 !border-0 !pb-0 flex items-center gap-2">
-                        <span className="doc-num">{section.id}</span> {section.title}
+                        <span className="doc-num">{section.number}</span> {section.name}
                         {status !== 'complete' && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
                             <AlertCircle className="h-3 w-3" /> Needs input
@@ -289,16 +330,16 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Contents</span>
             </div>
             <nav className="max-h-[75vh] space-y-0.5 overflow-y-auto px-2 py-2">
-              {sections.map((s) => (
+              {sections.map((node) => (
                 <button
-                  key={s.id}
-                  onClick={() => jumpTo(s.id)}
+                  key={node.section.id}
+                  onClick={() => jumpTo(node.section.id)}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-gray-50"
                 >
-                  <ContentsStatusIcon status={statuses.get(s.id) ?? 'not_started'} />
+                  <ContentsStatusIcon status={statuses.get(node.section.id) ?? 'not_started'} />
                   <span className="truncate text-xs">
-                    <span className="mr-1.5 font-mono text-gray-400">{s.id}</span>
-                    <span className="font-serif text-gray-800">{s.title}</span>
+                    <span className="mr-1.5 font-mono text-gray-400">{node.section.number}</span>
+                    <span className="font-serif text-gray-800">{node.section.name}</span>
                   </span>
                 </button>
               ))}

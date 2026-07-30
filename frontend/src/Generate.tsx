@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Draft } from './types';
-import { TEMPLATES } from './data';
-import { generateDocument, MOCK_LATENCY_MS } from './lib/generate';
+import type { ApiGeneratedSection, Draft, GeneratedSectionStatus } from './types';
+import { triggerDocumentGeneration } from './lib/api';
+import { leafNodes } from './lib/catalog';
+import { polishSections } from './lib/polling';
+import { useSrsCatalog } from './lib/sections';
 import { useScreenEnter, loopingPulse } from './lib/animations';
-import { BookOpen, Sparkles, RotateCcw, ArrowRight, Check, Circle, CircleDot } from 'lucide-react';
+import { BookOpen, Sparkles, RotateCcw, ArrowRight, Check, Circle, CircleDot, AlertTriangle } from 'lucide-react';
 
 interface GenerateProps {
   draft: Draft;
@@ -19,24 +21,25 @@ const STAGES = [
   'Finishing up…',
 ];
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
 export default function Generate({ draft, onUpdateDraft, onDone, onBack }: GenerateProps) {
   const [error, setError] = useState<string | null>(null);
   const [stageIndex, setStageIndex] = useState(0);
-  const [revealedCount, setRevealedCount] = useState(0);
+  const [statuses, setStatuses] = useState<Record<string, GeneratedSectionStatus>>({});
 
   const screenRef = useScreenEnter();
   const pulseRef = useRef<HTMLDivElement>(null);
+  const draftRef = useRef(draft);
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
 
-  const template = TEMPLATES.find((t) => t.id === draft.templateId);
-  const sections = useMemo(
-    () => (template?.sections ?? []).filter((s) => draft.selectedSectionIds.includes(s.id)),
-    [template, draft.selectedSectionIds],
-  );
+  const { catalog, loading: catalogLoading, error: catalogError } = useSrsCatalog();
+  const sections = useMemo(() => {
+    if (!catalog) return [];
+    return leafNodes(catalog.tree).filter((n) => draft.selectedSectionIds.includes(n.section.id));
+  }, [catalog, draft.selectedSectionIds]);
   const sectionCount = sections.length;
+
   const isActive = draft.generationStatus === 'generating' || draft.generationStatus === 'idle';
   const done = draft.generationStatus === 'done';
 
@@ -53,65 +56,100 @@ export default function Generate({ draft, onUpdateDraft, onDone, onBack }: Gener
     setStageIndex(0);
     const interval = setInterval(() => {
       setStageIndex((i) => Math.min(i + 1, STAGES.length - 1));
-    }, 420);
+    }, 900);
     return () => clearInterval(interval);
   }, [isActive]);
 
-  useEffect(() => {
-    if (!isActive || sectionCount === 0) return;
-    setRevealedCount(0);
-    const stepMs = clamp(MOCK_LATENCY_MS / sectionCount, 90, 260);
-    const interval = setInterval(() => {
-      setRevealedCount((c) => Math.min(c + 1, sectionCount));
-    }, stepMs);
-    return () => clearInterval(interval);
-  }, [isActive, sectionCount]);
-
-  useEffect(() => {
-    // Once generation actually finishes, snap the checklist to fully done
-    // rather than leaving it lagging behind the real result.
-    if (done) setRevealedCount(sectionCount);
-  }, [done, sectionCount]);
-
-  const progressPct = sectionCount === 0 ? 0 : Math.round((revealedCount / sectionCount) * 100);
+  const settledCount = sections.filter((s) => {
+    const st = statuses[s.section.id];
+    return st === 'ready' || st === 'failed';
+  }).length;
+  const readyCount = sections.filter((s) => statuses[s.section.id] === 'ready').length;
+  const progressPct = sectionCount === 0 ? 0 : Math.round((settledCount / sectionCount) * 100);
 
   const firstGeneratedLine = useMemo(() => {
     for (const section of sections) {
-      const content = draft.generated[section.id]?.trim();
+      const content = draft.generated[section.section.id]?.trim();
       if (content) return content.split('\n')[0];
     }
     return null;
   }, [sections, draft.generated]);
 
+  function applyRows(rows: ApiGeneratedSection[]) {
+    setStatuses((prev) => {
+      const next = { ...prev };
+      for (const row of rows) next[row.section] = row.status;
+      return next;
+    });
+    const current = draftRef.current;
+    const generated = { ...current.generated };
+    const generatedSectionIds = { ...current.generatedSectionIds };
+    for (const row of rows) {
+      if (row.status === 'ready') generated[row.section] = row.content;
+      generatedSectionIds[row.section] = row.id;
+    }
+    onUpdateDraft({ ...current, generated, generatedSectionIds });
+  }
+
   async function runGeneration() {
     setError(null);
-    onUpdateDraft({ ...draft, generationStatus: 'generating' });
+    setStatuses({});
+    onUpdateDraft({ ...draftRef.current, generationStatus: 'generating' });
 
-    if (!template) {
-      setError('Could not find the template for this draft.');
-      onUpdateDraft({ ...draft, generationStatus: 'error' });
+    if (!draft.sessionId) {
+      setError('This draft is not linked to a live session.');
+      onUpdateDraft({ ...draftRef.current, generationStatus: 'error' });
+      return;
+    }
+    if (sectionCount === 0) {
+      setError('No sections are selected for this document.');
+      onUpdateDraft({ ...draftRef.current, generationStatus: 'error' });
       return;
     }
 
     try {
-      const generated = await generateDocument({
-        template,
-        selectedSectionIds: draft.selectedSectionIds,
-        answers: draft.answers,
-        diagrams: draft.diagrams,
+      const sessionId = draft.sessionId;
+      const rows = await polishSections(
+        sessionId,
+        sections.map((s) => s.section.id),
+        { onUpdate: applyRows },
+      );
+      applyRows(rows);
+
+      const anyReady = rows.some((r) => r.status === 'ready');
+      if (!anyReady) {
+        setError('None of the selected sections could be generated. Please try again.');
+        onUpdateDraft({ ...draftRef.current, generationStatus: 'error' });
+        return;
+      }
+
+      const doc = await triggerDocumentGeneration(sessionId);
+      onUpdateDraft({
+        ...draftRef.current,
+        generationStatus: 'done',
+        generatedDocumentId: doc.id,
+        lastEdited: 'just now',
       });
-      onUpdateDraft({ ...draft, generated, generationStatus: 'done', lastEdited: 'just now' });
     } catch {
       setError('Something went wrong generating your document.');
-      onUpdateDraft({ ...draft, generationStatus: 'error' });
+      onUpdateDraft({ ...draftRef.current, generationStatus: 'error' });
     }
   }
 
   useEffect(() => {
+    if (catalogLoading || catalogError || sectionCount === 0) return;
     runGeneration();
-    // Runs once when this screen mounts (i.e. right after the author clicks "Generate").
+    // Runs once the catalog/selected sections are known (i.e. right after the author clicks "Generate").
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [catalogLoading, catalogError, sectionCount]);
+
+  if (catalogLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <p className="text-sm text-gray-500">Loading sections…</p>
+      </div>
+    );
+  }
 
   return (
     <div ref={screenRef} className="min-h-screen bg-paper">
@@ -127,13 +165,13 @@ export default function Generate({ draft, onUpdateDraft, onDone, onBack }: Gener
         </div>
       </header>
 
-      {draft.generationStatus === 'error' ? (
+      {draft.generationStatus === 'error' || catalogError ? (
         <main className="mx-auto max-w-md px-8 py-24 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-500">
             <Sparkles className="h-6 w-6" strokeWidth={1.8} />
           </div>
           <h1 className="font-serif text-xl font-semibold text-gray-900">Generation failed</h1>
-          <p className="mt-1.5 text-sm text-gray-500">{error ?? 'Please try again.'}</p>
+          <p className="mt-1.5 text-sm text-gray-500">{error ?? catalogError ?? 'Please try again.'}</p>
           <button
             onClick={runGeneration}
             className="mt-6 inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors"
@@ -171,7 +209,7 @@ export default function Generate({ draft, onUpdateDraft, onDone, onBack }: Gener
               <div className="mt-6">
                 <div className="mb-1.5 flex items-center justify-between text-xs text-gray-400">
                   <span>
-                    {revealedCount} of {sectionCount} sections
+                    {readyCount} of {sectionCount} sections
                   </span>
                   <span>{progressPct}%</span>
                 </div>
@@ -215,25 +253,28 @@ export default function Generate({ draft, onUpdateDraft, onDone, onBack }: Gener
                 </span>
               </div>
               <div className="max-h-[65vh] space-y-1.5 overflow-y-auto px-4 py-3">
-                {sections.map((s, i) => {
-                  const rowDone = i < revealedCount;
-                  const rowActive = i === revealedCount && !done;
+                {sections.map((s) => {
+                  const st = statuses[s.section.id];
                   return (
-                    <div key={s.id} className="flex items-center gap-2">
-                      {rowDone ? (
+                    <div key={s.section.id} className="flex items-center gap-2">
+                      {st === 'ready' ? (
                         <Check className="h-3.5 w-3.5 shrink-0 text-brand-600" strokeWidth={2.4} />
-                      ) : rowActive ? (
+                      ) : st === 'failed' ? (
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500" strokeWidth={2.2} />
+                      ) : st === 'polishing' ? (
                         <CircleDot className="h-3.5 w-3.5 shrink-0 animate-pulse-soft text-brand-500" />
                       ) : (
                         <Circle className="h-3.5 w-3.5 shrink-0 text-gray-300" />
                       )}
                       <span
-                        className={`shrink-0 font-mono text-[11px] ${rowDone ? 'text-brand-600' : 'text-gray-400'}`}
+                        className={`shrink-0 font-mono text-[11px] ${st === 'ready' ? 'text-brand-600' : 'text-gray-400'}`}
                       >
-                        {s.id}
+                        {s.section.number}
                       </span>
-                      <span className={`truncate font-serif text-sm ${rowDone ? 'text-gray-800' : 'text-gray-400'}`}>
-                        {s.title}
+                      <span
+                        className={`truncate font-serif text-sm ${st === 'ready' ? 'text-gray-800' : 'text-gray-400'}`}
+                      >
+                        {s.section.name}
                       </span>
                     </div>
                   );
