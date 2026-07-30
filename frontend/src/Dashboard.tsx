@@ -146,7 +146,7 @@ function DraftCard({
             </span>
           )}
           <span className="inline-flex items-center gap-1 text-gray-400">
-            <Circle className="h-3 w-3" /> {SECTIONS.length - completedSections - inProgress} left
+            <Circle className="h-3 w-3" /> {total - completedSections - inProgress} left
           </span>
         </div>
 
@@ -154,7 +154,7 @@ function DraftCard({
         <div className="mt-4">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
-              {completedSections}/{SECTIONS.length} sections
+              {completedSections}/{total} sections
             </span>
             <span className="text-xs font-semibold text-brand-600">{pct}%</span>
           </div>
