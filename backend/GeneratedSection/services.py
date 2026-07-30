@@ -6,7 +6,7 @@ from openai import OpenAI
 from .models import GeneratedSection
 from Answers.models import Answer
 
-STYLE_GUIDE_PATH = Path(__file__).resolve().parent / "style_guide.md"
+STYLE_GUIDE_PATH = Path(__file__).resolve().parent.parent.parent / "docs" / "srs-writing-rules.md"
 STYLE_GUIDE = STYLE_GUIDE_PATH.read_text(encoding="utf-8")
 
 OPENROUTER_MODEL = "openai/gpt-oss-20b:free"
