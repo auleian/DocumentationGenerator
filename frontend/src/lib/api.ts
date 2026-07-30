@@ -91,6 +91,14 @@ export function listGeneratedSections(): Promise<ApiGeneratedSection[]> {
   return request('generated-sections/');
 }
 
+/** Persists a manual edit to a section's polished content (Review's "Edit" flow). */
+export function updateGeneratedSectionContent(id: string, content: string): Promise<ApiGeneratedSection> {
+  return request(`generated-sections/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ content }),
+  });
+}
+
 export function triggerDocumentGeneration(
   sessionId: string,
 ): Promise<{ id: string; status: string; content: string }> {
