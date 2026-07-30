@@ -1,43 +1,28 @@
-import { useEffect, useState } from 'react';
-import type { ApiDocumentType, ApiQuestion, ApiSection, Screen } from './types';
-import { listDocumentTypes, listQuestions, listSections } from './lib/api';
+import { useState } from 'react';
+import type { Draft, Screen } from './types';
+import { MOCK_DRAFTS, TEMPLATES } from './data';
 import { useLocalStorageState } from './useLocalStorageState';
-import {
-  SESSION_EXTRAS_KEY,
-  SESSION_NICKNAMES_KEY,
-  type SessionExtras,
-  type SessionNicknames,
-} from './lib/sessionNicknames';
+import { createSession } from './lib/api';
+import { leafNodes } from './lib/catalog';
+import { loadSrsCatalog } from './lib/sections';
 import Home from './Home';
 import Drafts from './Dashboard';
 import TemplatePicker from './TemplatePicker';
+import ProjectDetails from './ProjectDetails';
+import SectionPicker from './SectionPicker';
 import Wizard from './Wizard';
 import Generate from './Generate';
 import Review from './Review';
 
 function App() {
   const [screen, setScreen] = useState<Screen>('home');
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [nicknames, setNicknames] = useLocalStorageState<SessionNicknames>(SESSION_NICKNAMES_KEY, {});
-  const [extras, setExtras] = useLocalStorageState<SessionExtras>(SESSION_EXTRAS_KEY, {});
+  const [drafts, setDrafts] = useLocalStorageState<Draft[]>('docgen.drafts.v1', MOCK_DRAFTS);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
 
-  const [documentTypes, setDocumentTypes] = useState<ApiDocumentType[]>([]);
-  const [sections, setSections] = useState<ApiSection[]>([]);
-  const [questions, setQuestions] = useState<ApiQuestion[]>([]);
-  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const activeDraft = drafts.find((d) => d.id === activeDraftId) || null;
 
-  useEffect(() => {
-    Promise.all([listDocumentTypes(), listSections(), listQuestions()])
-      .then(([dt, s, q]) => {
-        setDocumentTypes(dt);
-        setSections(s);
-        setQuestions(q);
-      })
-      .catch(() => setCatalogError('Could not reach the server. Is the backend running?'));
-  }, []);
-
-  function openDraft(sessionId: string) {
-    setActiveSessionId(sessionId);
+  function openDraft(id: string) {
+    setActiveDraftId(id);
     setScreen('wizard');
   }
 
@@ -45,100 +30,128 @@ function App() {
     setScreen('templates');
   }
 
-  function onSessionCreated(sessionId: string, nickname: string) {
-    setNicknames((prev) => ({ ...prev, [sessionId]: nickname }));
-    setActiveSessionId(sessionId);
-    setScreen('wizard');
-  }
+  const [creatingDraft, setCreatingDraft] = useState(false);
 
-  function onWizardComplete() {
-    setScreen('generate');
-  }
+  async function selectTemplate(templateId: string) {
+    const template = TEMPLATES.find((t) => t.id === templateId);
+    if (!template || template.comingSoon || creatingDraft) return;
 
-  function onGenerated(generatedDocumentId: string) {
-    if (activeSessionId) {
-      setExtras((prev) => ({
-        ...prev,
-        [activeSessionId]: { ...prev[activeSessionId], generatedDocumentId },
-      }));
+    setCreatingDraft(true);
+    try {
+      const [session, catalog] = await Promise.all([createSession(template.id), loadSrsCatalog()]);
+      const id = `draft-${Date.now()}`;
+      const draft: Draft = {
+        id,
+        title: '',
+        subtitle: '',
+        progress: 0,
+        lastEdited: 'just now',
+        templateId: template.id,
+        selectedSectionIds: leafNodes(catalog.tree).map((n) => n.section.id),
+        answers: {},
+        diagrams: {},
+        generated: {},
+        generationStatus: 'idle',
+        sessionId: session.id,
+        answerIds: {},
+        generatedDocumentId: null,
+        sectionSummary: { total: leafNodes(catalog.tree).length, complete: 0, inProgress: 0 },
+      };
+      setDrafts((prev) => [draft, ...prev]);
+      setActiveDraftId(id);
+      setScreen('details');
+    } catch {
+      // Session/catalog fetch failed (backend unreachable) — stay on the template picker.
+    } finally {
+      setCreatingDraft(false);
     }
-    setScreen('review');
   }
 
-  if (catalogError) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <div className="text-center max-w-sm px-6">
-          <p className="text-sm font-medium text-gray-900">Can&apos;t reach the server</p>
-          <p className="mt-1.5 text-sm text-gray-500">{catalogError}</p>
-        </div>
-      </div>
-    );
+  function updateDraft(updated: Draft) {
+    setDrafts((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+  }
+
+  function deleteDraft(id: string) {
+    setDrafts((prev) => prev.filter((d) => d.id !== id));
+    if (activeDraftId === id) setActiveDraftId(null);
   }
 
   if (screen === 'home') {
-    return <Home onBrowseDrafts={() => setScreen('drafts')} onNewSrs={goToTemplatePicker} />;
+    return <Home onBrowseDrafts={() => setScreen('drafts')} onStartNew={goToTemplatePicker} />;
   }
 
   if (screen === 'drafts') {
     return (
       <Drafts
-        nicknames={nicknames}
+        drafts={drafts}
         onOpenDraft={openDraft}
-        onNewSrs={goToTemplatePicker}
+        onStartNew={goToTemplatePicker}
         onBackHome={() => setScreen('home')}
+        onDeleteDraft={deleteDraft}
       />
     );
   }
 
   if (screen === 'templates') {
+    return <TemplatePicker onSelect={selectTemplate} onBackHome={() => setScreen('home')} />;
+  }
+
+  if (screen === 'details' && activeDraft) {
     return (
-      <TemplatePicker
-        documentTypes={documentTypes}
-        onCreated={onSessionCreated}
-        onBackHome={() => setScreen('home')}
+      <ProjectDetails
+        draft={activeDraft}
+        onUpdateDraft={updateDraft}
+        onContinue={() => setScreen('sections')}
+        onBack={() => setScreen('templates')}
       />
     );
   }
 
-  if (screen === 'wizard' && activeSessionId) {
+  if (screen === 'sections' && activeDraft) {
+    return (
+      <SectionPicker
+        draft={activeDraft}
+        onUpdateDraft={updateDraft}
+        onContinue={() => setScreen('wizard')}
+        onBack={() => setScreen('details')}
+      />
+    );
+  }
+
+  if (screen === 'wizard' && activeDraft) {
     return (
       <Wizard
-        sessionId={activeSessionId}
-        sessionTitle={nicknames[activeSessionId] ?? 'Untitled document'}
-        sections={sections}
-        questions={questions}
-        documentTypes={documentTypes}
-        onComplete={onWizardComplete}
+        draft={activeDraft}
         onBackToDrafts={() => setScreen('drafts')}
+        onGenerate={() => setScreen('generate')}
+        onUpdateDraft={updateDraft}
       />
     );
   }
 
-  if (screen === 'generate' && activeSessionId) {
+  if (screen === 'generate' && activeDraft) {
     return (
       <Generate
-        sessionId={activeSessionId}
-        documentTypes={documentTypes}
-        sections={sections}
-        onDone={onGenerated}
-        onBack={() => setScreen('drafts')}
+        draft={activeDraft}
+        onUpdateDraft={updateDraft}
+        onDone={() => setScreen('review')}
+        onBack={() => setScreen('wizard')}
       />
     );
   }
 
-  if (screen === 'review' && activeSessionId) {
+  if (screen === 'review' && activeDraft) {
     return (
       <Review
-        sessionId={activeSessionId}
-        sessionTitle={nicknames[activeSessionId] ?? 'Untitled document'}
-        generatedDocumentId={extras[activeSessionId]?.generatedDocumentId}
+        draft={activeDraft}
+        onUpdateDraft={updateDraft}
         onBackToDrafts={() => setScreen('drafts')}
+        onBackToWizard={() => setScreen('wizard')}
       />
     );
   }
 
-  return <Home onBrowseDrafts={() => setScreen('drafts')} onNewSrs={goToTemplatePicker} />;
+  return <Home onBrowseDrafts={() => setScreen('drafts')} onStartNew={goToTemplatePicker} />;
 }
 
 export default App;

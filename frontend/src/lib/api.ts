@@ -6,10 +6,18 @@ import type {
   ApiQuestion,
   ApiSection,
   DocumentSession,
+  ExportFormat,
+  GeneratedSectionStatus,
   NextSectionResponse,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api/';
+
+/** Turns a relative path returned by the backend (e.g. a FileField url like "/media/exports/x.pdf") into a fetchable absolute URL. */
+export function resolveMediaUrl(path: string): string {
+  const origin = BASE_URL.replace(/\/api\/?$/, '');
+  return `${origin}${path}`;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -55,6 +63,16 @@ export function getNextSection(sessionId: string): Promise<NextSectionResponse> 
   return request(`document-sessions/${sessionId}/next_section/`);
 }
 
+/** Repolishes exactly one section on demand (used by Review's "Regenerate section"), unlike next_section which walks the whole tree. */
+export function repolishSection(
+  sessionId: string,
+  sectionId: string,
+): Promise<{ id: string; section: string; status: GeneratedSectionStatus }> {
+  return request(`document-sessions/${sessionId}/repolish_section/?section=${sectionId}`, {
+    method: 'POST',
+  });
+}
+
 export function createAnswer(session: string, question: string, value: string): Promise<ApiAnswer> {
   return request('answers/', {
     method: 'POST',
@@ -73,7 +91,7 @@ export function listGeneratedSections(): Promise<ApiGeneratedSection[]> {
   return request('generated-sections/');
 }
 
-export function generateDocument(
+export function triggerDocumentGeneration(
   sessionId: string,
 ): Promise<{ id: string; status: string; content: string }> {
   return request(`document-sessions/${sessionId}/generate/`, { method: 'POST' });
@@ -85,4 +103,11 @@ export function getGeneratedDocument(id: string): Promise<ApiGeneratedDocument> 
 
 export function listGeneratedDocuments(): Promise<ApiGeneratedDocument[]> {
   return request('generated-documents/');
+}
+
+export function exportGeneratedDocument(
+  documentId: string,
+  format: ExportFormat,
+): Promise<{ id: string; file: string; status: string; reused: boolean }> {
+  return request(`generated-documents/${documentId}/export/?format=${format}`, { method: 'POST' });
 }

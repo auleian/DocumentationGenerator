@@ -1,3 +1,91 @@
+export type QuestionType = 'text' | 'textarea' | 'select';
+
+export interface Question {
+  id: string;
+  label: string;
+  /** Title used in the assembled IEEE document (e.g. "Purpose") */
+  docTitle: string;
+  type: QuestionType;
+  placeholder?: string;
+  options?: string[];
+  help?: string;
+}
+
+export interface DiagramSpec {
+  type: string;
+  reason: string;
+}
+
+/** An author-supplied diagram image attached to a section's diagram slot. */
+export interface DiagramAttachment {
+  dataUrl: string;
+  fileName: string;
+}
+
+export interface SrsSection {
+  /** IEEE number, e.g. "1.1", "3.1.2" */
+  id: string;
+  title: string;
+  description: string;
+  questions: Question[];
+  diagram?: DiagramSpec;
+  /** True only for sections that don't apply to every project (e.g. AI/ML). */
+  optional?: boolean;
+  /** Top-level grouping for the section picker, e.g. "3. Requirements". */
+  topGroup: string;
+  /** Mid-level grouping within a topGroup, e.g. "3.1 External Interfaces". Omit for direct children. */
+  subGroup?: string;
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  description: string;
+  sections: SrsSection[];
+  /** Shown disabled with a "Coming soon" badge in the template picker. */
+  comingSoon?: boolean;
+}
+
+export type SectionStatus = 'not_started' | 'in_progress' | 'complete';
+
+export type GenerationStatus = 'idle' | 'generating' | 'done' | 'error';
+
+export interface Draft {
+  id: string;
+  title: string;
+  subtitle: string;
+  progress: number;
+  lastEdited: string;
+  templateId: string;
+  /** IDs of the sections the author chose to include, from the template's tree. */
+  selectedSectionIds: string[];
+  answers: Record<string, string>;
+  diagrams: Record<string, DiagramAttachment>;
+  /** AI-generated (and possibly author-edited) prose per section, keyed by real Section id. */
+  generated: Record<string, string>;
+  generationStatus: GenerationStatus;
+  /** Real backend DocumentSession id backing this draft; null for legacy/local-only drafts. */
+  sessionId: string | null;
+  /** Question id -> Answer id, so the Wizard knows whether to POST or PATCH a given answer. */
+  answerIds: Record<string, string>;
+  /** Real GeneratedDocument id, set once /generate/ has succeeded at least once. */
+  generatedDocumentId: string | null;
+  /** Cached section-completion counts so Dashboard can render without its own fetch. */
+  sectionSummary: { total: number; complete: number; inProgress: number };
+}
+
+export type Screen =
+  | 'home'
+  | 'drafts'
+  | 'templates'
+  | 'details'
+  | 'sections'
+  | 'wizard'
+  | 'generate'
+  | 'review';
+
+// --- Backend API types (see lib/api.ts, lib/catalog.ts, lib/sections.ts) ---
+
 export interface ApiDocumentType {
   id: string;
   name: string;
@@ -82,12 +170,11 @@ export interface ApiQuestionStub {
   is_required: boolean;
 }
 
-/** Static display card for the template picker; not all of these exist as a backend DocumentType yet. */
-export interface TemplateCard {
-  id: string;
-  name: string;
-  description: string;
-  comingSoon?: boolean;
-}
+export type ExportFormat = 'html' | 'pdf' | 'docx';
 
-export type Screen = 'home' | 'drafts' | 'templates' | 'wizard' | 'generate' | 'review';
+/** A Section node with its own questions and its children, built from the flat ApiSection[]/ApiQuestion[] lists. */
+export interface SectionNode {
+  section: ApiSection;
+  questions: ApiQuestion[];
+  children: SectionNode[];
+}
