@@ -134,7 +134,7 @@ body {
   @apply text-[11px] font-mono uppercase tracking-[0.2em] text-brand-600 mb-2;
 }
 .doc-title {
-  @apply text-3xl font-bold tracking-tight text-gray-900;
+  @apply font-serif text-4xl font-semibold tracking-tight text-gray-900;
 }
 .doc-subtitle {
   @apply text-base text-gray-500 mt-1;
@@ -143,7 +143,7 @@ body {
   @apply mb-8;
 }
 .doc-h2 {
-  @apply text-xl font-semibold tracking-tight text-gray-900 mt-8 mb-1 pb-2 border-b border-gray-200;
+  @apply font-serif text-2xl font-semibold tracking-tight text-gray-900 mt-8 mb-1 pb-2 border-b border-gray-200;
 }
 .doc-h2 .doc-num {
   @apply text-brand-600 mr-2 font-mono text-lg;
@@ -161,7 +161,7 @@ body {
   @apply text-brand-500 mr-1.5 font-mono text-[13px];
 }
 .doc-question p {
-  @apply text-sm leading-relaxed text-gray-700 my-1.5;
+  @apply font-serif text-[15px] leading-relaxed text-gray-700 my-2;
 }
 .doc-tag {
   @apply inline-block font-mono text-[12px] bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded;

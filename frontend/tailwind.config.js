@@ -5,20 +5,22 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        serif: ['"Source Serif 4"', 'ui-serif', 'Georgia', 'serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
+        paper: '#FAF8F4',
         brand: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          200: '#bbf7d0',
-          300: '#86efac',
-          400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
-          900: '#14532d',
+          50: '#EFF6F5',
+          100: '#D7E9E7',
+          200: '#B0D3CE',
+          300: '#82B7AF',
+          400: '#579C92',
+          500: '#357F74',
+          600: '#26665D',
+          700: '#1E524B',
+          800: '#193F3A',
+          900: '#122E2B',
         },
       },
       boxShadow: {
