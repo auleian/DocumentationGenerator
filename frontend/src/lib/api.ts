@@ -59,6 +59,20 @@ export function listSessions(): Promise<DocumentSession[]> {
   return request('document-sessions/');
 }
 
+export function updateSession(
+  id: string,
+  patch: Partial<Pick<DocumentSession, 'title' | 'description'>>,
+): Promise<DocumentSession> {
+  return request(`document-sessions/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteSession(id: string): Promise<void> {
+  return request(`document-sessions/${id}/`, { method: 'DELETE' });
+}
+
 export function getNextSection(sessionId: string): Promise<NextSectionResponse> {
   return request(`document-sessions/${sessionId}/next_section/`);
 }
@@ -87,14 +101,46 @@ export function updateAnswer(id: string, value: string): Promise<ApiAnswer> {
   });
 }
 
+export function listAnswers(): Promise<ApiAnswer[]> {
+  return request('answers/');
+}
+
+export function uploadDiagram(
+  sessionId: string,
+  sectionId: string,
+  dataUrl: string,
+  fileName: string,
+): Promise<ApiGeneratedSection> {
+  return request(`document-sessions/${sessionId}/diagram/`, {
+    method: 'POST',
+    body: JSON.stringify({ section: sectionId, data_url: dataUrl, file_name: fileName }),
+  });
+}
+
+export function deleteDiagramRemote(sessionId: string, sectionId: string): Promise<void> {
+  return request(`document-sessions/${sessionId}/diagram/?section=${sectionId}`, { method: 'DELETE' });
+}
+
 export function listGeneratedSections(): Promise<ApiGeneratedSection[]> {
   return request('generated-sections/');
 }
 
+/** Persists a manual edit to a section's polished content (Review's "Edit" flow). */
+export function updateGeneratedSectionContent(id: string, content: string): Promise<ApiGeneratedSection> {
+  return request(`generated-sections/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ content }),
+  });
+}
+
 export function triggerDocumentGeneration(
   sessionId: string,
+  selectedSectionIds: string[],
 ): Promise<{ id: string; status: string; content: string }> {
-  return request(`document-sessions/${sessionId}/generate/`, { method: 'POST' });
+  return request(`document-sessions/${sessionId}/generate/`, {
+    method: 'POST',
+    body: JSON.stringify({ selected_section_ids: selectedSectionIds }),
+  });
 }
 
 export function getGeneratedDocument(id: string): Promise<ApiGeneratedDocument> {

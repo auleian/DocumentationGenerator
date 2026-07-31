@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Draft, DiagramAttachment, SectionStatus, SrsSection } from './types';
-import { TEMPLATES } from './data';
+import type { Draft, DiagramAttachment, SectionNode, SectionStatus } from './types';
+import { createAnswer, deleteDiagramRemote, updateAnswer, uploadDiagram } from './lib/api';
+import { computeSectionSummary, leafNodes } from './lib/catalog';
+import { useSrsCatalog } from './lib/sections';
 import { sectionStatus, sectionProgress, statusLabel, statusTextClass } from './helpers';
 import { buildDocumentHtml } from './markdown';
 import { popIn, useScreenEnter } from './lib/animations';
@@ -22,6 +24,7 @@ import {
 } from 'lucide-react';
 
 const MAX_DIAGRAM_BYTES = 5 * 1024 * 1024; // 5MB, matches the UI's stated limit
+const SAVE_DEBOUNCE_MS = 600;
 
 function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -43,10 +46,110 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
   const [activeIdx, setActiveIdx] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [diagramError, setDiagramError] = useState<string | null>(null);
   const screenRef = useScreenEnter();
 
-  const template = TEMPLATES.find((t) => t.id === draft.templateId);
-  const sections = (template?.sections ?? []).filter((s) => draft.selectedSectionIds.includes(s.id));
+  const { catalog, loading, error } = useSrsCatalog();
+  const leaves = useMemo(() => (catalog ? leafNodes(catalog.tree) : []), [catalog]);
+  const sections = useMemo(
+    () => leaves.filter((n) => draft.selectedSectionIds.includes(n.section.id)),
+    [leaves, draft.selectedSectionIds],
+  );
+
+  // Keep a ref mirroring the latest draft so debounced/async saves never act on a stale closure.
+  const draftRef = useRef(draft);
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  const pendingValues = useRef<Record<string, string>>({});
+  const saveTimers = useRef<Record<string, number>>({});
+
+  async function persistAnswer(qId: string, value: string) {
+    const sessionId = draftRef.current.sessionId;
+    if (!sessionId) return;
+    try {
+      const existingId = draftRef.current.answerIds[qId];
+      if (existingId) {
+        await updateAnswer(existingId, value);
+      } else {
+        const created = await createAnswer(sessionId, qId, value);
+        onUpdateDraft({
+          ...draftRef.current,
+          answerIds: { ...draftRef.current.answerIds, [qId]: created.id },
+        });
+      }
+      setSaveError(null);
+    } catch {
+      setSaveError("Couldn't save your last answer — check your connection.");
+    }
+  }
+
+  function commit(qId: string) {
+    const value = pendingValues.current[qId];
+    delete pendingValues.current[qId];
+    delete saveTimers.current[qId];
+    return persistAnswer(qId, value);
+  }
+
+  function scheduleSave(qId: string, value: string) {
+    pendingValues.current[qId] = value;
+    if (saveTimers.current[qId]) window.clearTimeout(saveTimers.current[qId]);
+    saveTimers.current[qId] = window.setTimeout(() => {
+      commit(qId);
+    }, SAVE_DEBOUNCE_MS);
+  }
+
+  async function flushPendingSaves() {
+    const ids = Object.keys(saveTimers.current);
+    await Promise.all(
+      ids.map((id) => {
+        window.clearTimeout(saveTimers.current[id]);
+        return commit(id);
+      }),
+    );
+  }
+
+  if (!draft.sessionId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <div className="text-center">
+          <p className="text-sm text-gray-500">This draft isn't linked to a live session.</p>
+          <button
+            onClick={onBackToDrafts}
+            className="mt-3 text-sm font-medium text-brand-700 hover:text-brand-800"
+          >
+            Back to drafts
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <p className="text-sm text-gray-500">Loading sections…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <div className="text-center">
+          <p className="text-sm text-red-600">{error}</p>
+          <button
+            onClick={onBackToDrafts}
+            className="mt-3 text-sm font-medium text-brand-700 hover:text-brand-800"
+          >
+            Back to drafts
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (sections.length === 0) {
     return (
@@ -68,12 +171,12 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
   const status = sectionStatus(section, draft);
 
   function setAnswer(qId: string, value: string) {
-    const next: Draft = { ...draft, answers: { ...draft.answers, [qId]: value }, lastEdited: 'just now' };
-    onUpdateDraft(next);
+    const answers = { ...draft.answers, [qId]: value };
+    const sectionSummary = computeSectionSummary(leaves, draft.selectedSectionIds, answers);
+    onUpdateDraft({ ...draft, answers, sectionSummary, lastEdited: 'just now' });
     flashSaved();
+    scheduleSave(qId, value);
   }
-
-  const [diagramError, setDiagramError] = useState<string | null>(null);
 
   async function attachDiagram(file: File) {
     setDiagramError(null);
@@ -88,17 +191,22 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
     const dataUrl = await readAsDataUrl(file);
     const next: Draft = {
       ...draft,
-      diagrams: { ...draft.diagrams, [section.id]: { dataUrl, fileName: file.name } },
+      diagrams: { ...draft.diagrams, [section.section.id]: { dataUrl, fileName: file.name } },
       lastEdited: 'just now',
     };
     onUpdateDraft(next);
     flashSaved();
+    uploadDiagram(draft.sessionId!, section.section.id, dataUrl, file.name).catch(() =>
+      setDiagramError("Saved locally, but couldn't sync to the server."),
+    );
   }
 
   function removeDiagram() {
-    const { [section.id]: _removed, ...rest } = draft.diagrams;
+    const rest = { ...draft.diagrams };
+    delete rest[section.section.id];
     onUpdateDraft({ ...draft, diagrams: rest, lastEdited: 'just now' });
     flashSaved();
+    deleteDiagramRemote(draft.sessionId!, section.section.id).catch(() => {});
   }
 
   let savedTimer: number | undefined;
@@ -111,6 +219,11 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
   function go(delta: number) {
     const next = Math.min(sections.length - 1, Math.max(0, activeIdx + delta));
     setActiveIdx(next);
+  }
+
+  async function handleGenerate() {
+    await flushPendingSaves();
+    onGenerate();
   }
 
   const overallPct = Math.round(
@@ -139,7 +252,7 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={onGenerate}
+              onClick={handleGenerate}
               className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors"
             >
               <Sparkles className="h-3.5 w-3.5" /> Generate document
@@ -170,7 +283,7 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
               const active = i === activeIdx;
               return (
                 <button
-                  key={s.id}
+                  key={s.section.id}
                   onClick={() => setActiveIdx(i)}
                   className={`w-full text-left px-4 py-2.5 flex items-start gap-2.5 transition-colors ${
                     active
@@ -181,14 +294,14 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
                   <StatusIcon status={st} />
                   <div className="min-w-0">
                     <div className={`text-[11px] font-mono ${active ? 'text-brand-600' : 'text-gray-400'}`}>
-                      {s.id}
+                      {s.section.number}
                     </div>
                     <div
                       className={`text-[13px] leading-snug truncate ${
                         active ? 'text-gray-900 font-medium' : 'text-gray-600'
                       }`}
                     >
-                      {s.title}
+                      {s.section.name}
                     </div>
                   </div>
                 </button>
@@ -203,40 +316,31 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
           <div key={activeIdx} className="animate-fade-up mx-auto max-w-2xl px-10 py-8">
             <div className="flex items-center gap-2 mb-2">
               <span className="font-mono text-xs font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded">
-                {section.id}
+                {section.section.number}
               </span>
               <span className={`text-xs font-medium ${statusTextClass(status)}`}>{statusLabel(status)}</span>
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{section.title}</h1>
-            <p className="mt-1.5 text-sm text-gray-500 leading-relaxed">{section.description}</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{section.section.name}</h1>
 
             <div className="mt-8 space-y-6">
               {section.questions.map((q, qi) => (
                 <div key={q.id} className="animate-fade-up" style={{ animationDelay: `${qi * 50}ms` }}>
                   <QuestionField
-                    label={q.label}
-                    help={q.help}
-                    type={q.type}
-                    options={q.options}
-                    placeholder={q.placeholder}
+                    label={q.text}
                     value={draft.answers[q.id] || ''}
                     onChange={(v) => setAnswer(q.id, v)}
                   />
                 </div>
               ))}
 
-              {section.diagram && (
-                <div className="animate-fade-up" style={{ animationDelay: `${section.questions.length * 50}ms` }}>
-                  <DiagramCard
-                    type={section.diagram.type}
-                    reason={section.diagram.reason}
-                    attached={draft.diagrams[section.id]}
-                    onAttach={attachDiagram}
-                    onRemove={removeDiagram}
-                    error={diagramError}
-                  />
-                </div>
-              )}
+              <div className="animate-fade-up" style={{ animationDelay: `${section.questions.length * 50}ms` }}>
+                <DiagramCard
+                  attached={draft.diagrams[section.section.id]}
+                  onAttach={attachDiagram}
+                  onRemove={removeDiagram}
+                  error={diagramError}
+                />
+              </div>
             </div>
           </div>
         </main>
@@ -283,16 +387,18 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
           <div className="flex items-center gap-4">
             <div
               className={`flex items-center gap-1.5 text-[11px] transition-all ${
-                savedFlash
-                  ? 'saved-flash text-brand-600'
-                  : 'opacity-60 text-gray-400'
+                saveError
+                  ? 'text-red-500'
+                  : savedFlash
+                    ? 'saved-flash text-brand-600'
+                    : 'opacity-60 text-gray-400'
               }`}
             >
-              <Save className={`h-3 w-3 ${savedFlash ? 'animate-pulse-soft' : ''}`} />
-              {savedFlash ? 'Saved' : 'All changes saved'}
+              <Save className={`h-3 w-3 ${savedFlash && !saveError ? 'animate-pulse-soft' : ''}`} />
+              {saveError ? saveError : savedFlash ? 'Saved' : 'All changes saved'}
             </div>
             <button
-              onClick={onGenerate}
+              onClick={handleGenerate}
               className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 transition-colors"
             >
               <Sparkles className="h-3.5 w-3.5" /> Generate document
@@ -314,69 +420,33 @@ function StatusIcon({ status }: { status: SectionStatus }) {
 
 interface QuestionFieldProps {
   label: string;
-  help?: string;
-  type: 'text' | 'textarea' | 'select';
-  options?: string[];
-  placeholder?: string;
   value: string;
   onChange: (v: string) => void;
 }
 
-function QuestionField({ label, help, type, options, placeholder, value, onChange }: QuestionFieldProps) {
+function QuestionField({ label, value, onChange }: QuestionFieldProps) {
   const base =
     'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-100 outline-none transition-all';
 
   return (
     <div>
       <label className="block text-sm font-medium text-gray-800 mb-1.5">{label}</label>
-      {help && <p className="text-xs text-gray-400 mb-2 leading-relaxed">{help}</p>}
-      {type === 'textarea' ? (
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          rows={4}
-          className={`${base} resize-y leading-relaxed`}
-        />
-      ) : type === 'select' ? (
-        <div className="relative">
-          <select
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className={`${base} appearance-none pr-9 cursor-pointer`}
-          >
-            <option value="">Select an option…</option>
-            {options?.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-          <ChevronRight className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 rotate-90" />
-        </div>
-      ) : (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className={base}
-        />
-      )}
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={4}
+        className={`${base} resize-y leading-relaxed`}
+      />
     </div>
   );
 }
 
 function DiagramCard({
-  type,
-  reason,
   attached,
   onAttach,
   onRemove,
   error,
 }: {
-  type: string;
-  reason: string;
   attached?: DiagramAttachment;
   onAttach: (file: File) => void;
   onRemove: () => void;
@@ -405,8 +475,10 @@ function DiagramCard({
             <ImagePlus className="h-4 w-4" strokeWidth={1.8} />
           </div>
           <div>
-            <div className="text-sm font-semibold text-gray-800">{type}</div>
-            <div className="text-xs text-gray-500">{reason}</div>
+            <div className="text-sm font-semibold text-gray-800">Diagram (optional)</div>
+            <div className="text-xs text-gray-500">
+              Attach a supporting image — shown in the preview, not included in AI-generated text.
+            </div>
           </div>
         </div>
       </div>
@@ -417,7 +489,7 @@ function DiagramCard({
             <img
               ref={imgRef}
               src={attached.dataUrl}
-              alt={type}
+              alt="Attached diagram"
               className="max-h-64 w-full object-contain"
             />
           </div>
@@ -462,7 +534,7 @@ function DiagramCard({
   );
 }
 
-function PreviewPane({ draft, sections }: { draft: Draft; sections: SrsSection[] }) {
+function PreviewPane({ draft, sections }: { draft: Draft; sections: SectionNode[] }) {
   const html = useMemo(() => buildDocumentHtml(draft, sections), [draft, sections]);
   return <div className="md-doc" dangerouslySetInnerHTML={{ __html: html }} />;
 }

@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import type { Draft } from './types';
-import { SECTIONS } from './data';
-import { sectionProgress } from './helpers';
 import { useScreenEnter } from './lib/animations';
 import {
   FileText,
@@ -106,11 +104,8 @@ function DraftCard({
   onDelete: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
-  const pct = Math.round(draft.progress * 100);
-  const completedSections = SECTIONS.filter((s) => sectionProgress(s, draft) === 1).length;
-  const inProgress = SECTIONS.filter(
-    (s) => sectionProgress(s, draft) > 0 && sectionProgress(s, draft) < 1,
-  ).length;
+  const { total, complete: completedSections, inProgress } = draft.sectionSummary;
+  const pct = total === 0 ? 0 : Math.round((completedSections / total) * 100);
 
   return (
     <div className="group h-full rounded-xl border border-gray-200 bg-white hover:border-brand-300 hover:shadow-card transition-all overflow-hidden flex flex-col">
@@ -151,7 +146,7 @@ function DraftCard({
             </span>
           )}
           <span className="inline-flex items-center gap-1 text-gray-400">
-            <Circle className="h-3 w-3" /> {SECTIONS.length - completedSections - inProgress} left
+            <Circle className="h-3 w-3" /> {total - completedSections - inProgress} left
           </span>
         </div>
 
@@ -159,7 +154,7 @@ function DraftCard({
         <div className="mt-4">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
-              {completedSections}/{SECTIONS.length} sections
+              {completedSections}/{total} sections
             </span>
             <span className="text-xs font-semibold text-brand-600">{pct}%</span>
           </div>

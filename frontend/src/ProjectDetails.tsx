@@ -1,7 +1,11 @@
+import { useEffect, useRef } from 'react';
 import type { Draft } from './types';
 import { TEMPLATES } from './data';
 import { useScreenEnter } from './lib/animations';
+import { updateSession } from './lib/api';
 import { BookOpen, ArrowRight } from 'lucide-react';
+
+const SAVE_DEBOUNCE_MS = 600;
 
 interface ProjectDetailsProps {
   draft: Draft;
@@ -15,13 +19,39 @@ export default function ProjectDetails({ draft, onUpdateDraft, onContinue, onBac
   const template = TEMPLATES.find((t) => t.id === draft.templateId);
 
   const nameValid = draft.title.trim().length > 0;
+  const sessionId = draft.sessionId;
+  const saveTimer = useRef<number>();
+
+  useEffect(() => () => window.clearTimeout(saveTimer.current), []);
+
+  function scheduleSave(title: string, description: string) {
+    if (!sessionId) return;
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      updateSession(sessionId, { title, description }).catch(() => {});
+    }, SAVE_DEBOUNCE_MS);
+  }
 
   function setTitle(title: string) {
     onUpdateDraft({ ...draft, title, lastEdited: 'just now' });
+    scheduleSave(title, draft.subtitle);
   }
 
   function setSubtitle(subtitle: string) {
     onUpdateDraft({ ...draft, subtitle, lastEdited: 'just now' });
+    scheduleSave(draft.title, subtitle);
+  }
+
+  async function handleContinue() {
+    window.clearTimeout(saveTimer.current);
+    if (sessionId) {
+      try {
+        await updateSession(sessionId, { title: draft.title, description: draft.subtitle });
+      } catch {
+        // best-effort — don't block navigation on a save failure
+      }
+    }
+    onContinue();
   }
 
   return (
@@ -86,7 +116,7 @@ export default function ProjectDetails({ draft, onUpdateDraft, onContinue, onBac
         <div className="mt-6 flex items-center justify-between">
           <p className="text-xs text-gray-400">{!nameValid && 'Give the project a name to continue.'}</p>
           <button
-            onClick={onContinue}
+            onClick={handleContinue}
             disabled={!nameValid}
             className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
           >

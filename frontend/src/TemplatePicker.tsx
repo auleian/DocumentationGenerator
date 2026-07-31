@@ -89,7 +89,7 @@ function TemplateCard({
       <p className="mt-1.5 text-xs leading-relaxed text-gray-500">{template.description}</p>
       {!comingSoon && (
         <p className="mt-4 text-xs font-medium text-brand-700 group-hover:text-brand-800">
-          {template.sections.length} sections available →
+          Choose your sections next →
         </p>
       )}
     </button>

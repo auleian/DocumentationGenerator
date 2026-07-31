@@ -1,30 +1,12 @@
-import type { Draft, SectionStatus, SrsSection } from './types';
-import { SECTIONS } from './data';
+import type { Draft, SectionNode, SectionStatus } from './types';
+import { leafSectionProgress, leafSectionStatus } from './lib/catalog';
 
-export function sectionStatus(section: SrsSection, draft: Draft): SectionStatus {
-  const answered = section.questions.filter((q) => {
-    const v = draft.answers[q.id];
-    return v && v.trim().length > 0;
-  }).length;
-  if (answered === 0) return 'not_started';
-  if (answered === section.questions.length) return 'complete';
-  return 'in_progress';
+export function sectionStatus(node: SectionNode, draft: Draft): SectionStatus {
+  return leafSectionStatus(node, draft.answers);
 }
 
-export function sectionProgress(section: SrsSection, draft: Draft): number {
-  const total = section.questions.length || 1;
-  const answered = section.questions.filter((q) => {
-    const v = draft.answers[q.id];
-    return v && v.trim().length > 0;
-  }).length;
-  return answered / total;
-}
-
-export function overallProgress(draft: Draft): number {
-  if (SECTIONS.length === 0) return 0;
-  let sum = 0;
-  for (const s of SECTIONS) sum += sectionProgress(s, draft);
-  return sum / SECTIONS.length;
+export function sectionProgress(node: SectionNode, draft: Draft): number {
+  return leafSectionProgress(node, draft.answers);
 }
 
 export function statusLabel(s: SectionStatus): string {

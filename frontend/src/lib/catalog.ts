@@ -1,4 +1,4 @@
-import type { ApiDocumentType, ApiQuestion, ApiSection, SectionNode } from '../types';
+import type { ApiDocumentType, ApiQuestion, ApiSection, SectionNode, SectionStatus } from '../types';
 
 export function documentTypeIdByName(documentTypes: ApiDocumentType[], name: string): string | undefined {
   return documentTypes.find((d) => d.name === name)?.id;
@@ -70,4 +70,37 @@ export function leafNodes(tree: SectionNode[]): SectionNode[] {
   }
   walk(tree);
   return result;
+}
+
+/** A leaf section's completion, based on how many of its questions have a non-empty answer. */
+export function leafSectionStatus(node: SectionNode, answers: Record<string, string>): SectionStatus {
+  if (node.questions.length === 0) return 'not_started';
+  const answered = node.questions.filter((q) => (answers[q.id] ?? '').trim().length > 0).length;
+  if (answered === 0) return 'not_started';
+  if (answered === node.questions.length) return 'complete';
+  return 'in_progress';
+}
+
+/** A leaf section's fraction of answered questions, 0..1. */
+export function leafSectionProgress(node: SectionNode, answers: Record<string, string>): number {
+  const total = node.questions.length || 1;
+  const answered = node.questions.filter((q) => (answers[q.id] ?? '').trim().length > 0).length;
+  return answered / total;
+}
+
+/** Recomputes a draft's cached section-completion counts from the real catalog — keeps Dashboard accurate without its own fetch. */
+export function computeSectionSummary(
+  leaves: SectionNode[],
+  selectedSectionIds: string[],
+  answers: Record<string, string>,
+): { total: number; complete: number; inProgress: number } {
+  const selected = leaves.filter((n) => selectedSectionIds.includes(n.section.id));
+  let complete = 0;
+  let inProgress = 0;
+  for (const node of selected) {
+    const status = leafSectionStatus(node, answers);
+    if (status === 'complete') complete++;
+    else if (status === 'in_progress') inProgress++;
+  }
+  return { total: selected.length, complete, inProgress };
 }

@@ -1,4 +1,4 @@
-import type { Draft, SrsSection } from './types';
+import type { Draft, SectionNode } from './types';
 
 function esc(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -18,15 +18,15 @@ function answerHtml(draft: Draft, qId: string, placeholder: string): string {
   return `<p class="md-placeholder">${esc(placeholder)}</p>`;
 }
 
-function questionNumber(sectionId: string, qIdx: number): string {
-  return `${sectionId}.${qIdx + 1}`;
+function questionNumber(sectionNumber: string, qIdx: number): string {
+  return `${sectionNumber}.${qIdx + 1}`;
 }
 
 /**
  * Raw-answer preview (what the author has typed so far, before generation).
  * Used by the Wizard's live preview panel while answering questions.
  */
-export function buildDocumentHtml(draft: Draft, sections: SrsSection[]): string {
+export function buildDocumentHtml(draft: Draft, sections: SectionNode[]): string {
   let html = '';
   html += `<div class="doc-cover">`;
   html += `<div class="doc-eyebrow">Software Requirements Specification</div>`;
@@ -40,32 +40,26 @@ export function buildDocumentHtml(draft: Draft, sections: SrsSection[]): string 
   return html;
 }
 
-function renderSection(s: SrsSection, draft: Draft): string {
+function renderSection(node: SectionNode, draft: Draft): string {
+  const s = node.section;
   let html = `<section class="doc-section">`;
-  html += `<h2 class="doc-h2"><span class="doc-num">${esc(s.id)}</span> ${esc(s.title)}</h2>`;
-  html += `<p class="doc-desc">${esc(s.description)}</p>`;
+  html += `<h2 class="doc-h2"><span class="doc-num">${esc(s.number)}</span> ${esc(s.name)}</h2>`;
 
-  for (let q = 0; q < s.questions.length; q++) {
-    const question = s.questions[q];
-    const qnum = questionNumber(s.id, q);
+  for (let q = 0; q < node.questions.length; q++) {
+    const question = node.questions[q];
+    const qnum = questionNumber(s.number, q);
     html += `<div class="doc-question">`;
-    html += `<h3 class="doc-h3"><span class="doc-num">${esc(qnum)}</span> ${esc(question.docTitle)}</h3>`;
+    html += `<h3 class="doc-h3"><span class="doc-num">${esc(qnum)}</span> ${esc(question.text)}</h3>`;
     html += answerHtml(draft, question.id, 'Not yet answered.');
     html += `</div>`;
   }
 
-  if (s.diagram) {
-    const attached = draft.diagrams[s.id];
-    const dnum = questionNumber(s.id, s.questions.length);
+  const attached = draft.diagrams[s.id];
+  if (attached) {
     html += `<div class="doc-question">`;
-    html += `<h3 class="doc-h3"><span class="doc-num">${esc(dnum)}</span> Diagram</h3>`;
-    html += `<p><span class="doc-tag">${esc(s.diagram.type)}</span> — ${esc(s.diagram.reason)}</p>`;
-    if (attached) {
-      html += `<img class="doc-diagram" src="${attached.dataUrl}" alt="${esc(attached.fileName)}" />`;
-      html += `<p class="doc-attached">Attached: <code>${esc(attached.fileName)}</code></p>`;
-    } else {
-      html += `<p class="md-placeholder">No diagram attached yet.</p>`;
-    }
+    html += `<h3 class="doc-h3">Diagram</h3>`;
+    html += `<img class="doc-diagram" src="${attached.dataUrl}" alt="${esc(attached.fileName)}" />`;
+    html += `<p class="doc-attached">Attached: <code>${esc(attached.fileName)}</code></p>`;
     html += `</div>`;
   }
 
@@ -74,7 +68,7 @@ function renderSection(s: SrsSection, draft: Draft): string {
 }
 
 /** Real Markdown text of the generated document, for export. */
-export function buildGeneratedMarkdown(draft: Draft, sections: SrsSection[]): string {
+export function buildGeneratedMarkdown(draft: Draft, sections: SectionNode[]): string {
   let md = `# ${draft.title}\n\n`;
   if (draft.subtitle) md += `*${draft.subtitle}*\n\n`;
   md += `---\n\n`;
@@ -85,13 +79,14 @@ export function buildGeneratedMarkdown(draft: Draft, sections: SrsSection[]): st
   return md;
 }
 
-function renderGeneratedSectionMarkdown(s: SrsSection, draft: Draft): string {
-  let md = `## ${s.id} ${s.title}\n\n`;
+function renderGeneratedSectionMarkdown(node: SectionNode, draft: Draft): string {
+  const s = node.section;
+  let md = `## ${s.number} ${s.name}\n\n`;
 
   const content = draft.generated[s.id];
   md += content ? `${content}\n\n` : `_Not generated yet._\n\n`;
 
-  const attached = s.diagram ? draft.diagrams[s.id] : undefined;
+  const attached = draft.diagrams[s.id];
   if (attached) {
     md += `![${attached.fileName}](${attached.dataUrl})\n\n`;
   }
