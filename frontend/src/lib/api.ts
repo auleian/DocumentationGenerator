@@ -59,6 +59,20 @@ export function listSessions(): Promise<DocumentSession[]> {
   return request('document-sessions/');
 }
 
+export function updateSession(
+  id: string,
+  patch: Partial<Pick<DocumentSession, 'title' | 'description'>>,
+): Promise<DocumentSession> {
+  return request(`document-sessions/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteSession(id: string): Promise<void> {
+  return request(`document-sessions/${id}/`, { method: 'DELETE' });
+}
+
 export function getNextSection(sessionId: string): Promise<NextSectionResponse> {
   return request(`document-sessions/${sessionId}/next_section/`);
 }

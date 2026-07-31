@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Draft, Screen } from './types';
 import { TEMPLATES } from './data';
 import { useLocalStorageState } from './useLocalStorageState';
-import { createSession } from './lib/api';
+import { createSession, deleteSession } from './lib/api';
 import { leafNodes } from './lib/catalog';
 import { loadSrsCatalog } from './lib/sections';
 import Home from './Home';
@@ -71,9 +71,17 @@ function App() {
     setDrafts((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
   }
 
-  function deleteDraft(id: string) {
+  async function deleteDraft(id: string) {
+    const draft = drafts.find((d) => d.id === id);
     setDrafts((prev) => prev.filter((d) => d.id !== id));
     if (activeDraftId === id) setActiveDraftId(null);
+    if (draft?.sessionId) {
+      try {
+        await deleteSession(draft.sessionId);
+      } catch {
+        // best-effort — the local draft is already gone either way
+      }
+    }
   }
 
   if (screen === 'home') {

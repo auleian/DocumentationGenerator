@@ -121,6 +121,8 @@ export type DocumentSessionStatus =
 export interface DocumentSession {
   id: string;
   document_type: string;
+  title: string;
+  description: string;
   status: DocumentSessionStatus;
   created_at: string;
   expires_at: string | null;
