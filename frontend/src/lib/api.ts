@@ -105,6 +105,22 @@ export function listAnswers(): Promise<ApiAnswer[]> {
   return request('answers/');
 }
 
+export function uploadDiagram(
+  sessionId: string,
+  sectionId: string,
+  dataUrl: string,
+  fileName: string,
+): Promise<ApiGeneratedSection> {
+  return request(`document-sessions/${sessionId}/diagram/`, {
+    method: 'POST',
+    body: JSON.stringify({ section: sectionId, data_url: dataUrl, file_name: fileName }),
+  });
+}
+
+export function deleteDiagramRemote(sessionId: string, sectionId: string): Promise<void> {
+  return request(`document-sessions/${sessionId}/diagram/?section=${sectionId}`, { method: 'DELETE' });
+}
+
 export function listGeneratedSections(): Promise<ApiGeneratedSection[]> {
   return request('generated-sections/');
 }

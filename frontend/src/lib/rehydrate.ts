@@ -1,4 +1,4 @@
-import type { ApiAnswer, ApiGeneratedSection, DocumentSession, Draft } from '../types';
+import type { ApiAnswer, ApiGeneratedSection, DiagramAttachment, DocumentSession, Draft } from '../types';
 import { listAnswers, listGeneratedSections, listSessions } from './api';
 import { computeSectionSummary, leafNodes } from './catalog';
 import { loadSrsCatalog } from './sections';
@@ -20,9 +20,13 @@ function draftFromSession(
   const sessionGeneratedSections = generatedSections.filter((gs) => gs.session === session.id);
   const generated: Record<string, string> = {};
   const generatedSectionIds: Record<string, string> = {};
+  const diagrams: Record<string, DiagramAttachment> = {};
   for (const gs of sessionGeneratedSections) {
     if (gs.status === 'ready') generated[gs.section] = gs.content;
     generatedSectionIds[gs.section] = gs.id;
+    if (gs.diagram_data_url) {
+      diagrams[gs.section] = { dataUrl: gs.diagram_data_url, fileName: gs.diagram_file_name };
+    }
   }
 
   const answeredIds = leaves
@@ -38,7 +42,7 @@ function draftFromSession(
     templateId: session.document_type,
     selectedSectionIds,
     answers: draftAnswers,
-    diagrams: {},
+    diagrams,
     generated,
     generationStatus: 'idle',
     sessionId: session.id,

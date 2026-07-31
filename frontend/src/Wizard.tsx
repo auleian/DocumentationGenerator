@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Draft, DiagramAttachment, SectionNode, SectionStatus } from './types';
-import { createAnswer, updateAnswer } from './lib/api';
+import { createAnswer, deleteDiagramRemote, updateAnswer, uploadDiagram } from './lib/api';
 import { computeSectionSummary, leafNodes } from './lib/catalog';
 import { useSrsCatalog } from './lib/sections';
 import { sectionStatus, sectionProgress, statusLabel, statusTextClass } from './helpers';
@@ -196,6 +196,9 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
     };
     onUpdateDraft(next);
     flashSaved();
+    uploadDiagram(draft.sessionId!, section.section.id, dataUrl, file.name).catch(() =>
+      setDiagramError("Saved locally, but couldn't sync to the server."),
+    );
   }
 
   function removeDiagram() {
@@ -203,6 +206,7 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
     delete rest[section.section.id];
     onUpdateDraft({ ...draft, diagrams: rest, lastEdited: 'just now' });
     flashSaved();
+    deleteDiagramRemote(draft.sessionId!, section.section.id).catch(() => {});
   }
 
   let savedTimer: number | undefined;

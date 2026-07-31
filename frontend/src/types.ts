@@ -97,6 +97,8 @@ export interface ApiGeneratedSection {
   session: string;
   section: string;
   content: string;
+  diagram_data_url: string;
+  diagram_file_name: string;
   status: GeneratedSectionStatus;
   created_at: string;
   updated_at: string;
