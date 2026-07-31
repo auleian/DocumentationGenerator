@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Draft, Screen } from './types';
 import { TEMPLATES } from './data';
 import { useLocalStorageState } from './useLocalStorageState';
 import { createSession, deleteSession } from './lib/api';
 import { leafNodes } from './lib/catalog';
 import { loadSrsCatalog } from './lib/sections';
+import { rehydrateDrafts } from './lib/rehydrate';
 import Home from './Home';
 import Drafts from './Dashboard';
 import TemplatePicker from './TemplatePicker';
@@ -20,6 +21,19 @@ function App() {
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
 
   const activeDraft = drafts.find((d) => d.id === activeDraftId) || null;
+
+  useEffect(() => {
+    rehydrateDrafts().then((fetched) => {
+      if (fetched.length === 0) return;
+      setDrafts((prev) => {
+        const known = new Set(prev.map((d) => d.sessionId));
+        const missing = fetched.filter((d) => !known.has(d.sessionId));
+        return missing.length === 0 ? prev : [...prev, ...missing];
+      });
+    });
+    // Runs once on mount to pull in any backend sessions missing from local state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function openDraft(id: string) {
     setActiveDraftId(id);

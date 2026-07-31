@@ -101,6 +101,10 @@ export function updateAnswer(id: string, value: string): Promise<ApiAnswer> {
   });
 }
 
+export function listAnswers(): Promise<ApiAnswer[]> {
+  return request('answers/');
+}
+
 export function listGeneratedSections(): Promise<ApiGeneratedSection[]> {
   return request('generated-sections/');
 }
