@@ -14,6 +14,8 @@ class GeneratedSection(models.Model):
     session = models.ForeignKey(DocumentSession, related_name='generated_sections', on_delete=models.CASCADE)
     section = models.ForeignKey(Section, related_name='generated_sections', on_delete=models.CASCADE)
     content = models.TextField(blank=True)
+    diagram_data_url = models.TextField(blank=True, default='')
+    diagram_file_name = models.CharField(max_length=255, blank=True, default='')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

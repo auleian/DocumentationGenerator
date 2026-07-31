@@ -71,6 +71,26 @@ class DocumentSessionViewSet(viewsets.ModelViewSet):
         gs = polish_section_answers(session, section)
         return Response({"id": str(gs.id), "section": str(section.id), "status": gs.status})
 
+    @action(detail=True, methods=['post', 'delete'])
+    def diagram(self, request, pk=None):
+        session = self.get_object()
+        section_id = request.data.get('section') if request.method == 'POST' else request.query_params.get('section')
+        if not section_id:
+            return Response({"error": "section is required"}, status=400)
+
+        try:
+            section = Section.objects.get(id=section_id, document_type__name=session.document_type)
+        except Section.DoesNotExist:
+            return Response({"error": "section not found for this session's document type"}, status=404)
+
+        data_url = '' if request.method == 'DELETE' else request.data.get('data_url', '')
+        file_name = '' if request.method == 'DELETE' else request.data.get('file_name', '')
+        gs, _ = GeneratedSection.objects.update_or_create(
+            session=session, section=section,
+            defaults={'diagram_data_url': data_url, 'diagram_file_name': file_name},
+        )
+        return Response({"section": str(section.id), "diagram_file_name": gs.diagram_file_name})
+
     @action(detail=True, methods=['post'])
     def generate(self, request, pk=None):
         session = self.get_object()
@@ -96,7 +116,12 @@ class DocumentSessionViewSet(viewsets.ModelViewSet):
         if not all_ready_sections:
             return Response({"message": "No polished sections available yet."}, status=400)
 
-        combined_markdown = "\n\n".join(gs.content for gs in all_ready_sections)
+        parts = []
+        for gs in all_ready_sections:
+            parts.append(gs.content)
+            if gs.diagram_data_url:
+                parts.append(f"![{gs.diagram_file_name}]({gs.diagram_data_url})")
+        combined_markdown = "\n\n".join(parts)
 
         doc, _ = GeneratedDocument.objects.update_or_create(
             session=session,
