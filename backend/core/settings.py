@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -23,12 +24,16 @@ load_dotenv(BASE_DIR / '.env')
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-$%6rgjyuwyn(j^bmh#35r&3$stj)39qqkxsf5ly8=rty3s6b7u'
+# Falls back to the original insecure dev key so nothing breaks for anyone
+# without a .env — set DJANGO_SECRET_KEY before this ever leaves a dev machine.
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY', 'django-insecure-$%6rgjyuwyn(j^bmh#35r&3$stj)39qqkxsf5ly8=rty3s6b7u'
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [h for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h]
 
 
 # Application definition
