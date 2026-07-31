@@ -47,6 +47,7 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
   const [previewOpen, setPreviewOpen] = useState(true);
   const [savedFlash, setSavedFlash] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [diagramError, setDiagramError] = useState<string | null>(null);
   const screenRef = useScreenEnter();
 
   const { catalog, loading, error } = useSrsCatalog();
@@ -177,8 +178,6 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
     scheduleSave(qId, value);
   }
 
-  const [diagramError, setDiagramError] = useState<string | null>(null);
-
   async function attachDiagram(file: File) {
     setDiagramError(null);
     if (!file.type.startsWith('image/')) {
@@ -200,7 +199,8 @@ export default function Wizard({ draft, onBackToDrafts, onGenerate, onUpdateDraf
   }
 
   function removeDiagram() {
-    const { [section.section.id]: _removed, ...rest } = draft.diagrams;
+    const rest = { ...draft.diagrams };
+    delete rest[section.section.id];
     onUpdateDraft({ ...draft, diagrams: rest, lastEdited: 'just now' });
     flashSaved();
   }
