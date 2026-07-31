@@ -123,7 +123,7 @@ export default function Generate({ draft, onUpdateDraft, onDone, onBack }: Gener
         return;
       }
 
-      const doc = await triggerDocumentGeneration(sessionId);
+      const doc = await triggerDocumentGeneration(sessionId, draft.selectedSectionIds);
       onUpdateDraft({
         ...draftRef.current,
         generationStatus: 'done',

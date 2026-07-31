@@ -94,12 +94,14 @@ class DocumentSessionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def generate(self, request, pk=None):
         session = self.get_object()
+        selected_ids = request.data.get('selected_section_ids')
 
         def get_ordered_ready_sections(section):
             result = []
-            gs = GeneratedSection.objects.filter(session=session, section=section, status='ready').first()
-            if gs:
-                result.append(gs)
+            if selected_ids is None or str(section.id) in selected_ids:
+                gs = GeneratedSection.objects.filter(session=session, section=section, status='ready').first()
+                if gs:
+                    result.append(gs)
             for sub in section.subsections.all().order_by('order'):
                 result += get_ordered_ready_sections(sub)
             return result

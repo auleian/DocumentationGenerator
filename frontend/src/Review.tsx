@@ -97,7 +97,7 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
     const generatedSectionId = draft.generatedSectionIds[sectionId];
     if (generatedSectionId && draft.sessionId) {
       await updateGeneratedSectionContent(generatedSectionId, editText);
-      await triggerDocumentGeneration(draft.sessionId);
+      await triggerDocumentGeneration(draft.sessionId, draft.selectedSectionIds);
     }
   }
 
@@ -114,7 +114,7 @@ export default function Review({ draft, onUpdateDraft, onBackToDrafts, onBackToW
           generatedSectionIds: { ...draft.generatedSectionIds, [sectionId]: row.id },
           lastEdited: 'just now',
         });
-        await triggerDocumentGeneration(draft.sessionId);
+        await triggerDocumentGeneration(draft.sessionId, draft.selectedSectionIds);
       }
     } finally {
       setRegeneratingId(null);

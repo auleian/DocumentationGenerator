@@ -135,8 +135,12 @@ export function updateGeneratedSectionContent(id: string, content: string): Prom
 
 export function triggerDocumentGeneration(
   sessionId: string,
+  selectedSectionIds: string[],
 ): Promise<{ id: string; status: string; content: string }> {
-  return request(`document-sessions/${sessionId}/generate/`, { method: 'POST' });
+  return request(`document-sessions/${sessionId}/generate/`, {
+    method: 'POST',
+    body: JSON.stringify({ selected_section_ids: selectedSectionIds }),
+  });
 }
 
 export function getGeneratedDocument(id: string): Promise<ApiGeneratedDocument> {
